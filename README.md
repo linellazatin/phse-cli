@@ -162,6 +162,8 @@ pse-tools/
 │   ├── models.py           # Shared data models
 │   ├── data/
 │   │   ├── pse_edge.py     # PSE Edge scraper (HTML/AJAX)
+│   │   ├── frames_pse.py   # frames.pse.com.ph JSON parser (backup source)
+│   │   ├── unified.py      # Auto-merges frames_pse + pse_edge
 │   │   ├── cache.py        # SQLite caching layer
 │   │   └── models.py       # Company, Quote, OHLCV models
 │   ├── scan/
@@ -196,11 +198,18 @@ pse-tools/
 
 ## Data Source
 
-Data is fetched from [PSE Edge](https://edge.pse.com.ph) via HTML/AJAX scraping:
+Primary: [PSE Edge](https://edge.pse.com.ph) via HTML/AJAX scraping
 
 - **Company list**: `POST /companyDirectory/search.ax` (paginated)
 - **Quote**: `GET /companyPage/stockData.do?cmpy_id=X`
 - **History**: `POST /common/DisclosureCht.ax` (AJAX with cmpy_id, security_id, dates)
+
+Secondary: [frames.pse.com.ph](https://frames.pse.com.ph) via JSON parsing
+
+- **Quote**: Embedded JSON in hidden input field (fast, lightweight)
+- **Company list**: Same JSON (388 entries, filters to ~367 stocks)
+
+Unified client merges both: frames price + pse_edge OHLC/market cap/P/E.
 
 No API key required. Prices are EOD-frozen in SQLite cache; metadata refreshes daily.
 
@@ -233,7 +242,7 @@ pytest tests/test_analysis.py -v   # Analysis module
 pytest tests/test_chart.py -v      # Chart module
 ```
 
-**34 tests passing.** Test symbols: GCASH, DMC, FGEN.
+**44 tests passing.** Test symbols: GCASH, DMC, FGEN.
 
 ## CLI Reference
 
