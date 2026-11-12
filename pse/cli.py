@@ -622,7 +622,6 @@ def about():
     console.print(Panel(
         Text("PSE Tools — Philippine Stock Exchange CLI\n"
              "A modular tool for scanning, analyzing, and charting PSE stocks.\n\n"
-             "Test symbols: GCASH (Mynt), DMC (DMCI Holdings), FGEN (First Gen)\n\n"
              "Data source: PSE Edge (edge.pse.com.ph)\n"
              "Version: 0.1.0",
              style="cyan"),
