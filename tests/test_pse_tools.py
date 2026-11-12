@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 from pse.config import get_settings
 from pse.data.models import Company, Quote, OHLCV
 from pse.data.pse_edge import PseEdgeClient
+from pse.data.frames_pse import FramesPseClient
+from pse.data.unified import UnifiedPseClient
 
 
 class TestSettings:
@@ -134,3 +136,99 @@ class TestPseEdgeClient:
         assert PseEdgeClient._parse_percent("+1.46%") == 1.46
         assert PseEdgeClient._parse_percent("-1.46%") == -1.46
         assert PseEdgeClient._parse_percent("N/A") is None
+
+
+class TestFramesPseClient:
+    @pytest.fixture
+    def client(self):
+        return FramesPseClient(get_settings())
+
+    def test_resolve_symbol(self, client):
+        """Test symbol resolution on frames.pse.com.ph."""
+        gcash = client.resolve_symbol("GCASH")
+        assert gcash is not None
+        assert gcash.get("StockSymbol") == "GCASH"
+
+        dmc = client.resolve_symbol("DMC")
+        assert dmc is not None
+        assert dmc.get("StockSymbol") == "DMC"
+
+        fgen = client.resolve_symbol("FGEN")
+        assert fgen is not None
+        assert fgen.get("StockSymbol") == "FGEN"
+
+    def test_resolve_unknown_symbol(self, client):
+        """Test resolution of unknown symbol."""
+        result = client.resolve_symbol("NONEXISTENT123")
+        assert result is None
+
+    def test_get_quote(self, client):
+        """Test quote fetching from frames.pse.com.ph."""
+        quote = client.get_quote("GCASH")
+        assert quote.symbol == "GCASH"
+        assert quote.last_price is not None
+        assert quote.last_price > 0
+        assert quote.volume is not None
+        assert quote.volume > 0
+
+    def test_get_quote_fgen(self, client):
+        """Test quote fetching for FGEN."""
+        quote = client.get_quote("FGEN")
+        assert quote.symbol == "FGEN"
+        assert quote.last_price is not None
+        assert quote.last_price > 0
+
+    def test_get_companies(self, client):
+        """Test company list fetching."""
+        companies = client.get_companies()
+        assert len(companies) > 300  # frames has 388 entries, filters to ~367 stocks
+        symbols = [c.symbol for c in companies]
+        assert "GCASH" in symbols
+        assert "DMC" in symbols
+        assert "FGEN" in symbols
+
+
+class TestUnifiedPseClient:
+    @pytest.fixture
+    def client(self):
+        return UnifiedPseClient(get_settings())
+
+    def test_get_quote_enriched(self, client):
+        """Test that unified client returns enriched data."""
+        quote = client.get_quote("FGEN")
+        assert quote.symbol == "FGEN"
+        assert quote.last_price is not None
+        assert quote.last_price > 0
+        # Should have pse_edge enrichment
+        assert quote.open is not None or quote.high is not None
+        assert quote.week_52_high is not None or quote.market_cap is not None
+
+    def test_get_quote_gcash(self, client):
+        """Test unified quote for GCASH."""
+        quote = client.get_quote("GCASH")
+        assert quote.symbol == "GCASH"
+        assert quote.last_price is not None
+        assert quote.last_price > 0
+
+    def test_resolve_symbol(self, client):
+        """Test unified symbol resolution."""
+        dmc = client.resolve_symbol("DMC")
+        assert dmc is not None
+        assert dmc.symbol == "DMC"
+
+    def test_get_companies_fallback(self, client):
+        """Test unified company list."""
+        companies = client.get_companies()
+        assert len(companies) > 0
+        symbols = [c.symbol for c in companies]
+        assert "GCASH" in symbols
+
+    def test_get_price_history(self, client):
+        """Test unified price history."""
+        history = client.get_price_history("DMC", "1m")
+        assert len(history) > 0
+        assert all(h.open > 0 for h in history)
+        assert all(h.high > 0 for h in history)
+        assert all(h.low > 0 for h in history)
+        assert all(h.close > 0 for h in history)
+        assert all(h.volume >= 0 for h in history)
