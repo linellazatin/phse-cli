@@ -16,6 +16,21 @@ from .config import get_settings
 from .analysis import backtest_sma_crossover, compute_indicators, generate_signals
 from .analysis.models import AnalysisResult
 from .chart.renderer import render_chart
+from .dividends import dividend_add, dividend_list, dividend_remove, dividend_upcoming
+from .why import explain_signal
+from .fundamentals import company_fundamentals
+from .recap import market_recap
+from .watchlist import (
+    alert_add,
+    alert_check,
+    alert_list,
+    alert_remove,
+    alert_reset,
+    watchlist_add,
+    watchlist_clear,
+    watchlist_list,
+    watchlist_remove,
+)
 from .data.models import Company, Quote, OHLCV, ScanResult
 from .data.pse_edge import PseEdgeClient
 
@@ -264,6 +279,171 @@ def analyze(symbol: str, period: str = typer.Option("1y", "--period", "-p",
     _print_analysis(analysis, current_price, symbol)
 
 
+# ── watchlist command ─────────────────────────────────────────────────
+
+@app.command()
+def watchlist(
+    command: str = typer.Argument("list", help="Command: list, add, remove, clear"),
+    symbol: str = typer.Option("", "-s", "--symbol", help="Symbol to add/remove"),
+):
+    """Manage your watchlist."""
+    if command == "list":
+        items = watchlist_list()
+        if not items:
+            console.print("[dim]Watchlist is empty.[/dim]")
+        else:
+            console.print(f"[bold]Watchlist ({len(items)} symbols):[/bold]")
+            for sym in items:
+                console.print(f"  [green]{sym}[/green]")
+    elif command == "add":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for add.[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(watchlist_add(symbol))
+    elif command == "remove":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for remove.[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(watchlist_remove(symbol))
+    elif command == "clear":
+        console.print(watchlist_clear())
+    else:
+        console.print(f"[bold red]Unknown command: {command}[/bold red]")
+        console.print("[dim]Available: list, add, remove, clear[/dim]")
+        raise typer.Exit(code=1)
+
+
+# ── why command ───────────────────────────────────────────────────────
+
+@app.command()
+def why(symbol: str, period: str = typer.Option("1y", "--period", "-p")):
+    """Explain why a stock got its current signal."""
+    explain_signal(symbol, period)
+
+
+# ── dividend command ──────────────────────────────────────────────────
+
+@app.command()
+def dividend(
+    command: str = typer.Argument("list", help="Command: list, upcoming, add, remove"),
+    symbol: str = typer.Option("", "-s", "--symbol", help="Stock symbol"),
+    ex_date: str = typer.Option("", "-e", "--ex-date", help="Ex-date (YYYY-MM-DD)"),
+    payment_date: str = typer.Option("", "-p", "--payment-date", help="Payment date (YYYY-MM-DD)"),
+    amount: float = typer.Option(0.0, "-a", "--amount", help="Amount per share (PHP)"),
+):
+    """Track dividend payments."""
+    if command == "list":
+        items = dividend_list(symbol if symbol else None)
+        if not items:
+            console.print("[dim]No dividend records.[/dim]")
+        else:
+            console.print(f"[bold]Dividend Records ({len(items)}):[/bold]")
+            for d in items:
+                console.print(f"  [bold]{d['symbol']}[/bold] ex-{d['ex_date']} → {d['payment_date']}  P{d['amount_per_share']:.4f}/share  [{d['dividend_type']}]")
+    elif command == "upcoming":
+        items = dividend_upcoming()
+        if not items:
+            console.print("[dim]No upcoming dividends.[/dim]")
+        else:
+            console.print(f"[bold]Upcoming Dividends ({len(items)}):[/bold]")
+            for d in items:
+                console.print(f"  [bold]{d['symbol']}[/bold] ex-{d['ex_date']}  P{d['amount_per_share']:.4f}/share")
+    elif command == "add":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for add.[/bold red]")
+            raise typer.Exit(code=1)
+        if not ex_date or not payment_date or amount <= 0:
+            console.print("[bold red]Error: --ex-date, --payment-date, and --amount are required for add.[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(dividend_add(symbol, ex_date, payment_date, amount))
+    elif command == "remove":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for remove.[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(dividend_remove(symbol, ex_date if ex_date else None))
+    else:
+        console.print(f"[bold red]Unknown command: {command}[/bold red]")
+        console.print("[dim]Available: list, upcoming, add, remove[/dim]")
+        raise typer.Exit(code=1)
+
+
+# ── fundamentals command ──────────────────────────────────────────────
+
+@app.command()
+def fundamentals(symbol: str):
+    """Show company fundamentals and key financial metrics."""
+    company_fundamentals(symbol)
+
+
+# ── recap command ─────────────────────────────────────────────────────
+
+@app.command()
+def recap():
+    """Show a market recap with top gainers, losers, and volume leaders."""
+    market_recap()
+
+
+# ── alert command ─────────────────────────────────────────────────────
+
+@app.command()
+def alert(
+    command: str = typer.Argument("list", help="Command: add, list, remove, check, reset"),
+    symbol: str = typer.Option("", "-s", "--symbol", help="Stock symbol"),
+    threshold: float = typer.Option(0.0, "-t", "--threshold", help="Price threshold"),
+    above: bool = typer.Option(True, "--above/--below", help="Alert when price is above/below threshold"),
+):
+    """Set and manage price alerts."""
+    if command == "list":
+        items = alert_list()
+        if not items:
+            console.print("[dim]No alerts set.[/dim]")
+        else:
+            console.print(f"[bold]Price Alerts ({len(items)}):[/bold]")
+            for a in items:
+                direction = "↑" if a["above"] else "↓"
+                status = "[dim]triggered[/dim]" if a["triggered"] else "[green]active[/green]"
+                console.print(f"  {direction} [bold]{a['symbol']}[/bold] at {a['threshold']:.2f} — {status}")
+    elif command == "add":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for add.[/bold red]")
+            raise typer.Exit(code=1)
+        if threshold <= 0:
+            console.print("[bold red]Error: --threshold must be positive.[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(alert_add(symbol, threshold, above))
+    elif command == "remove":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for remove.[/bold red]")
+            raise typer.Exit(code=1)
+        console.print(alert_remove(symbol, threshold if threshold > 0 else None))
+    elif command == "check":
+        if not symbol:
+            console.print("[bold red]Error: --symbol is required for check.[/bold red]")
+            raise typer.Exit(code=1)
+        # Fetch current price
+        from pse.data.pse_edge import PseEdgeClient
+        from pse.config import get_settings
+        client = PseEdgeClient(get_settings())
+        quote = client.get_quote(0, symbol)
+        if quote is None or quote.last_price is None:
+            console.print(f"[bold red]Could not fetch quote for '{symbol}'.[/bold red]")
+            raise typer.Exit(code=1)
+        triggered = alert_check(quote.last_price, symbol)
+        if triggered:
+            console.print(f"[bold red]⚠ ALERT TRIGGERED for {symbol}![/bold red]")
+            for a in triggered:
+                direction = "above" if a.above else "below"
+                console.print(f"  Price {a.threshold:.2f} crossed {direction} {a.threshold:.2f}")
+        else:
+            console.print(f"[dim]No alerts triggered for {symbol} (current: {quote.last_price:.2f})[/dim]")
+    elif command == "reset":
+        console.print(alert_reset(symbol if symbol else None))
+    else:
+        console.print(f"[bold red]Unknown command: {command}[/bold red]")
+        console.print("[dim]Available: add, list, remove, check, reset[/dim]")
+        raise typer.Exit(code=1)
+
+
 # ── chart command ─────────────────────────────────────────────────────
 
 @app.command()
@@ -432,19 +612,6 @@ def signals(top_gainers: bool = typer.Option(False, "--buy", "-b",
         if sell_signals:
             sell_signals.sort(key=lambda x: x[1].composite_score)
             _print_signals_table("Top Sell Signals", sell_signals[:5])
-
-
-# ── Watchlist commands (placeholder for Phase 4) ───────────────────────
-
-@app.command()
-def watchlist(action: str = typer.Option("list", "--action", "-a",
-                                          help="Action: list, add, remove"),
-              symbol: Optional[str] = typer.Option(None, "--symbol", "-s",
-                                                    help="Stock symbol"),
-):
-    """Manage your stock watchlist. (Coming in Phase 4)"""
-    console.print(f"[bold]Watchlist[/bold] — action: {action}, symbol: {symbol or '—'}")
-    console.print("[dim]Coming in Phase 4[/dim]")
 
 
 # ── Help / About ───────────────────────────────────────────────────────

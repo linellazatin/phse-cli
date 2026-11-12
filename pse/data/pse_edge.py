@@ -172,10 +172,14 @@ class PseEdgeClient:
 
     def get_quote(self, cmpy_id: int, symbol: str = "") -> Quote:
         """Fetch the latest stock quote for a company."""
-        if not symbol:
-            company = self.resolve_symbol(symbol) if symbol else None
+        # If only symbol is provided, resolve to cmpy_id
+        if cmpy_id == 0 and symbol:
+            company = self.resolve_symbol(symbol)
             if company:
+                cmpy_id = company.cmpy_id
                 symbol = company.symbol
+        elif cmpy_id == 0 and not symbol:
+            raise ValueError("Either cmpy_id or symbol must be provided")
 
         self._throttle()
         resp = self._get(f"/companyPage/stockData.do?cmpy_id={cmpy_id}")
@@ -347,6 +351,15 @@ class PseEdgeClient:
         Returns:
             List of OHLCV data points
         """
+        # If only symbol is provided, resolve to cmpy_id
+        if cmpy_id == 0 and symbol:
+            company = self.resolve_symbol(symbol)
+            if company:
+                cmpy_id = company.cmpy_id
+                symbol = company.symbol
+        elif cmpy_id == 0 and not symbol:
+            return []
+
         # Map period to date range
         end_date = datetime.now(timezone.utc).date()
         periods = {
