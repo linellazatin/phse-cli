@@ -13,6 +13,9 @@ from rich.table import Table
 from rich.text import Text
 
 from .config import get_settings
+from .analysis import backtest_sma_crossover, compute_indicators, generate_signals
+from .analysis.models import AnalysisResult
+from .chart.renderer import render_chart
 from .data.models import Company, Quote, OHLCV, ScanResult
 from .data.pse_edge import PseEdgeClient
 
@@ -217,12 +220,218 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
     _print_scan_results(results, title)
 
 
-# ── analyze command (placeholder for Phase 2) ──────────────────────────
+# ── analyze command ───────────────────────────────────────────────────
 
 @app.command()
-def analyze(symbol: str):
-    """Show technical analysis for a PSE stock. (Coming in Phase 2)"""
-    console.print(f"[bold]{symbol}[/bold] analysis — coming soon in Phase 2")
+def analyze(symbol: str, period: str = typer.Option("1y", "--period", "-p",
+            help="Time period for analysis: 1m, 3m, 6m, 1y"),
+):
+    """Show technical analysis and signals for a PSE stock."""
+    client = PseEdgeClient(settings)
+
+    # Resolve symbol
+    company = client.resolve_symbol(symbol)
+    if not company:
+        console.print(f"[bold red]Error: Symbol '{symbol}' not found.[/bold red]")
+        raise typer.Exit(code=1)
+
+    # Fetch history
+    try:
+        ohlcv = client.get_price_history(company.cmpy_id, symbol, period)
+    except Exception as e:
+        console.print(f"[bold red]Error fetching history:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    if len(ohlcv) < 20:
+        console.print(f"[yellow]Need at least 20 bars for analysis. Got {len(ohlcv)}.[/yellow]")
+        return
+
+    # Compute indicators
+    indicators = compute_indicators(ohlcv, symbol)
+    current_price = ohlcv[-1].close
+
+    # Generate signals
+    analysis = generate_signals(indicators, current_price)
+
+    # Compute support/resistance from recent data
+    window = min(20, len(ohlcv))
+    recent = ohlcv[-window:]
+    support = min(o.low for o in recent)
+    resistance = max(o.high for o in recent)
+    analysis.support_level = support
+    analysis.resistance_level = resistance
+
+    _print_analysis(analysis, current_price, symbol)
+
+
+# ── chart command ─────────────────────────────────────────────────────
+
+@app.command()
+def chart(symbol: str, period: str = typer.Option("1y", "--period", "-p",
+            help="Time period: 1m, 3m, 6m, 1y"),
+          indicators: bool = typer.Option(True, "--indicators/--no-indicators",
+            help="Show indicator overlays (SMA, Bollinger Bands)"),
+          block: bool = typer.Option(True, "--block/--no-block",
+            help="Block until chart window is closed"),
+):
+    """Open an interactive candlestick chart for a PSE stock."""
+    client = PseEdgeClient(settings)
+
+    # Resolve symbol
+    company = client.resolve_symbol(symbol)
+    if not company:
+        console.print(f"[bold red]Error: Symbol '{symbol}' not found.[/bold red]")
+        raise typer.Exit(code=1)
+
+    # Fetch history
+    try:
+        ohlcv = client.get_price_history(company.cmpy_id, symbol, period)
+    except Exception as e:
+        console.print(f"[bold red]Error fetching history:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    if len(ohlcv) < 20:
+        console.print(f"[yellow]Need at least 20 bars for chart. Got {len(ohlcv)}.[/yellow]")
+        return
+
+    # Compute indicators for overlays
+    indicators_data = compute_indicators(ohlcv, symbol) if indicators else None
+
+    # Render chart
+    try:
+        chart = render_chart(symbol, ohlcv, indicators_data)
+        console.print(f"[dim]Opening chart for {symbol}...[/dim]")
+        chart.show(block=block)
+    except Exception as e:
+        console.print(f"[bold red]Error rendering chart:[/bold red] {e}")
+        console.print("[dim]Tip: Ensure lightweight-charts is installed (pip install lightweight-charts)[/dim]")
+        raise typer.Exit(code=1)
+
+
+# ── backtest command ──────────────────────────────────────────────────
+
+@app.command()
+def backtest(symbol: str, period: str = typer.Option("1y", "--period", "-p",
+            help="Time period: 1m, 3m, 6m, 1y"),
+            short: int = typer.Option(7, "--short", "-s",
+            help="Short SMA period"),
+            long: int = typer.Option(20, "--long", "-l",
+            help="Long SMA period"),
+):
+    """Backtest a simple SMA crossover strategy."""
+    client = PseEdgeClient(settings)
+
+    # Resolve symbol
+    company = client.resolve_symbol(symbol)
+    if not company:
+        console.print(f"[bold red]Error: Symbol '{symbol}' not found.[/bold red]")
+        raise typer.Exit(code=1)
+
+    # Fetch history
+    try:
+        ohlcv = client.get_price_history(company.cmpy_id, symbol, period)
+    except Exception as e:
+        console.print(f"[bold red]Error fetching history:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    if len(ohlcv) < long + 10:
+        console.print(f"[yellow]Need at least {long + 10} bars. Got {len(ohlcv)}.[/yellow]")
+        return
+
+    # Run backtest
+    result = backtest_sma_crossover(ohlcv, symbol, short, long)
+
+    # Print results
+    console.print()
+    console.print(Panel(
+        f"[bold]{result.strategy}[/bold] on {result.symbol}\n\n"
+        f"[dim]Period:[/dim]  {result.period_days} trading days\n"
+        f"[dim]Total Return:[/dim]  {result.total_return_pct:+.2f}%\n"
+        f"[dim]Win Rate:[/dim]  {result.win_rate:.0f}% ({result.buy_count} buys, {result.sell_count} sells)\n"
+        f"[dim]Max Drawdown:[/dim]  {result.max_drawdown_pct:.2f}%\n"
+        f"[dim]Sharpe Ratio:[/dim]  {result.sharpe_ratio:.2f}",
+        title="Backtest Results",
+        border_style="blue",
+    ))
+    console.print()
+
+
+# ── signals command ───────────────────────────────────────────────────
+
+@app.command()
+def signals(top_gainers: bool = typer.Option(False, "--buy", "-b",
+              help="Show stocks with buy signals"),
+            top_losers: bool = typer.Option(False, "--sell", "-s",
+              help="Show stocks with sell signals"),
+            symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
+              help="Comma-separated symbols to analyze"),
+            period: str = typer.Option("1m", "--period", "-p",
+              help="Time period: 1m, 3m, 6m, 1y"),
+):
+    """Scan stocks for buy/sell signals."""
+    client = PseEdgeClient(settings)
+
+    # Get companies
+    try:
+        companies = client.get_companies()
+    except Exception as e:
+        console.print(f"[bold red]Error fetching company list:[/bold red] {e}")
+        raise typer.Exit(code=1)
+
+    if symbols:
+        symbol_set = {s.strip().upper() for s in symbols.split(",")}
+        companies = [c for c in companies if c.symbol.upper() in symbol_set]
+
+    console.print(f"[dim]Analyzing {len(companies)} stocks...[/dim]")
+
+    buy_signals = []
+    sell_signals = []
+    neutral_signals = []
+
+    for company in companies:
+        try:
+            ohlcv = client.get_price_history(company.cmpy_id, company.symbol, period)
+            if len(ohlcv) < 20:
+                continue
+
+            indicators = compute_indicators(ohlcv, company.symbol)
+            current_price = ohlcv[-1].close
+            analysis = generate_signals(indicators, current_price)
+
+            if analysis.composite_signal == "BUY":
+                buy_signals.append((company.symbol, analysis))
+            elif analysis.composite_signal == "SELL":
+                sell_signals.append((company.symbol, analysis))
+            else:
+                neutral_signals.append((company.symbol, analysis))
+        except Exception:
+            continue
+
+    # Print results
+    if top_gainers and buy_signals:
+        buy_signals.sort(key=lambda x: x[1].composite_score, reverse=True)
+        _print_signals_table("Buy Signals", buy_signals[:10])
+    elif top_losers and sell_signals:
+        sell_signals.sort(key=lambda x: x[1].composite_score)
+        _print_signals_table("Sell Signals", sell_signals[:10])
+    else:
+        # Show summary
+        console.print()
+        console.print(Panel(
+            f"[green]BUY:[/green]   {len(buy_signals)} stock(s)\n"
+            f"[yellow]HOLD:[/yellow] {len(neutral_signals)} stock(s)\n"
+            f"[red]SELL:[/red]   {len(sell_signals)} stock(s)",
+            title=f"Signal Summary ({len(companies)} analyzed)",
+        ))
+        console.print()
+
+        if buy_signals:
+            buy_signals.sort(key=lambda x: x[1].composite_score, reverse=True)
+            _print_signals_table("Top Buy Signals", buy_signals[:5])
+
+        if sell_signals:
+            sell_signals.sort(key=lambda x: x[1].composite_score)
+            _print_signals_table("Top Sell Signals", sell_signals[:5])
 
 
 # ── Watchlist commands (placeholder for Phase 4) ───────────────────────
@@ -345,6 +554,149 @@ def _print_scan_results(results: list[ScanResult], title: str):
         )
 
     console.print(table)
+
+
+def _print_analysis(analysis: AnalysisResult, current_price: float, symbol: str):
+    """Print comprehensive analysis output."""
+    from .analysis.models import AnalysisResult
+
+    # Header
+    color = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(analysis.composite_signal, "white")
+    arrow = {"BUY": "▲", "SELL": "▼", "HOLD": "—"}.get(analysis.composite_signal, "—")
+
+    console.print()
+    console.print(Panel(
+        Text(f"{symbol} — Technical Analysis", style="bold white"),
+        title=f"[{color}]{analysis.composite_signal} (confidence: {analysis.composite_confidence:.0%})[/{color}]",
+        subtitle=f"Score: {analysis.composite_score:+.3f}  |  Current: {current_price:.2f}",
+    ))
+    console.print()
+
+    # Indicators table
+    ind = analysis.indicators
+    table = Table(title="Technical Indicators", show_lines=False)
+    table.add_column("Indicator", style="dim", width=18)
+    table.add_column("Value", style="white", width=14)
+    table.add_column("Signal", width=14)
+
+    if ind.sma_7:
+        table.add_row("SMA 7", f"{ind.sma_7:.2f}", _sma_signal(current_price, ind.sma_7))
+    if ind.sma_20:
+        table.add_row("SMA 20", f"{ind.sma_20:.2f}", _sma_signal(current_price, ind.sma_20))
+    if ind.sma_50:
+        table.add_row("SMA 50", f"{ind.sma_50:.2f}", _sma_signal(current_price, ind.sma_50))
+    if ind.sma_200:
+        table.add_row("SMA 200", f"{ind.sma_200:.2f}", _sma_signal(current_price, ind.sma_200))
+    if ind.ema_12:
+        table.add_row("EMA 12", f"{ind.ema_12:.2f}", _ema_signal(ind.ema_12, ind.ema_26))
+    if ind.rsi_14:
+        table.add_row("RSI 14", f"{ind.rsi_14:.1f}", _rsi_signal(ind.rsi_14))
+    if ind.macd_line is not None:
+        table.add_row("MACD", f"{ind.macd_line:.3f}", _macd_signal(ind.macd_line, ind.macd_signal, ind.macd_hist))
+    if ind.bb_upper:
+        table.add_row("BB Upper", f"{ind.bb_upper:.2f}", _bb_signal(current_price, ind.bb_upper, ind.bb_lower))
+    if ind.bb_lower:
+        table.add_row("BB Lower", f"{ind.bb_lower:.2f}", _bb_signal(current_price, ind.bb_upper, ind.bb_lower))
+    if ind.atr_14:
+        table.add_row("ATR 14", f"{ind.atr_14:.2f}", "—")
+    if ind.vwap:
+        table.add_row("VWAP", f"{ind.vwap:.2f}", "—")
+
+    console.print(table)
+    console.print()
+
+    # Signals
+    if analysis.signals:
+        table2 = Table(title="Signal Details", show_lines=False)
+        table2.add_column("Signal", style="dim", width=14)
+        table2.add_column("Direction", width=10)
+        table2.add_column("Strength", width=10)
+        table2.add_column("Reason", style="white")
+        for s in analysis.signals:
+            dir_color = {"BUY": "green", "SELL": "red", "NEUTRAL": "yellow"}.get(s.direction, "white")
+            table2.add_row(
+                s.name,
+                f"[{dir_color}]{s.direction}[/{dir_color}]",
+                f"{s.strength:.0%}",
+                s.reason,
+            )
+        console.print(table2)
+        console.print()
+
+    # Support/Resistance
+    if analysis.support_level and analysis.resistance_level:
+        console.print(f"[dim]Support:[/dim]  {analysis.support_level:.2f}  [dim]Resistance:[/dim]  {analysis.resistance_level:.2f}")
+
+
+def _sma_signal(price: float, sma: float) -> str:
+    """Return colored SMA signal."""
+    if price > sma:
+        return "[green]BULLISH[/green]"
+    return "[red]BEARISH[/red]"
+
+
+def _ema_signal(ema12: float, ema26: float | None) -> str:
+    """Return colored EMA signal."""
+    if ema26 is None:
+        return "—"
+    if ema12 > ema26:
+        return "[green]BULLISH[/green]"
+    return "[red]BEARISH[/red]"
+
+
+def _rsi_signal(rsi: float) -> str:
+    """Return colored RSI signal."""
+    if rsi < 30:
+        return "[green]OVERSOLD[/green]"
+    elif rsi < 45:
+        return "[green]WEAK[/green]"
+    elif rsi > 70:
+        return "[red]OVERBOUGHT[/red]"
+    elif rsi > 55:
+        return "[red]STRONG[/red]"
+    return "[yellow]NEUTRAL[/yellow]"
+
+
+def _macd_signal(macd: float, signal: float | None, hist: float | None) -> str:
+    """Return colored MACD signal."""
+    if signal is not None:
+        if macd > signal:
+            return "[green]BULLISH[/green]"
+        return "[red]BEARISH[/red]"
+    return "—"
+
+
+def _bb_signal(price: float, upper: float | None, lower: float | None) -> str:
+    """Return colored Bollinger Band signal."""
+    if lower and price <= lower:
+        return "[green]NEAR LOWER[/green]"
+    if upper and price >= upper:
+        return "[red]NEAR UPPER[/red]"
+    return "[yellow]MIDDLE[/yellow]"
+
+
+def _print_signals_table(title: str, signals: list[tuple[str, AnalysisResult]]):
+    """Print a signals table."""
+    table = Table(title=title, show_lines=False)
+    table.add_column("Symbol", style="cyan", width=10)
+    table.add_column("Signal", width=10)
+    table.add_column("Score", width=10)
+    table.add_column("Confidence", width=12)
+    table.add_column("Key Reason", style="white")
+
+    for symbol, analysis in signals:
+        dir_color = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(analysis.composite_signal, "white")
+        key_reason = analysis.signals[0].reason if analysis.signals else "—"
+        table.add_row(
+            symbol,
+            f"[{dir_color}]{analysis.composite_signal}[/{dir_color}]",
+            f"{analysis.composite_score:+.3f}",
+            f"{analysis.composite_confidence:.0%}",
+            key_reason[:40],
+        )
+
+    console.print(table)
+    console.print()
 
 
 if __name__ == "__main__":
