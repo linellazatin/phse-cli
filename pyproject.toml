@@ -35,6 +35,7 @@ chart = [
 
 [project.scripts]
 pse = "pse.cli:app"
+pse-bootstrap = "scripts.bootstrap_data:bootstrap"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pse"]

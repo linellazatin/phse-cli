@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from .config import Settings, get_settings
-from .data.models import ScanResult
-from .data.pse_edge import PseEdgeClient
+from ..config import Settings, get_settings
+from ..data.models import ScanResult
+from ..data.pse_edge import PseEdgeClient
 
 
 class StockScreener:
@@ -33,14 +33,18 @@ class StockScreener:
         if not companies:
             return []
 
+        # Build company lookup for names
+        companies_by_symbol = {c.symbol.upper(): c for c in companies}
+
         # Fetch quotes
         results = []
         for company in companies:
             try:
                 quote = self.client.get_quote(company.cmpy_id, company.symbol)
+                company_name = companies_by_symbol.get(company.symbol.upper(), company).name
                 results.append(ScanResult(
                     symbol=quote.symbol,
-                    company_name=quote.company_name,
+                    company_name=company_name,
                     last_price=quote.last_price,
                     change=quote.change,
                     percent_change=quote.percent_change,

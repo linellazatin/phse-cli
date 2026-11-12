@@ -118,6 +118,8 @@ def list(force: bool = typer.Option(False, "--force", "-f",
 @app.command()
 def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
          top_losers: bool = typer.Option(False, "--top-losers", "-l"),
+         symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
+                                                help="Comma-separated symbols to scan (e.g. DMC,FGEN)"),
          sector: Optional[str] = typer.Option(None, "--sector", "-s",
                                                help="Filter by sector"),
          min_volume: Optional[int] = typer.Option(None, "--min-volume",
@@ -126,13 +128,15 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
                                                     help="Minimum price filter"),
          price_max: Optional[float] = typer.Option(None, "--price-max",
                                                     help="Maximum price filter"),
+         limit: int = typer.Option(50, "--limit", "-n",
+                                    help="Maximum number of results"),
          sort_by: str = typer.Option("symbol", "--sort",
                                       help="Sort by: symbol, change, volume, price"),
 ):
     """Scan PSE stocks with filters and sorting."""
     client = PseEdgeClient(settings)
 
-    # Get all companies
+    # Get companies
     try:
         companies = client.get_companies()
     except Exception as e:
@@ -143,15 +147,25 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
         console.print("[yellow]No companies found.[/yellow]")
         return
 
-    # Fetch quotes for all companies (batch)
-    console.print("[dim]Fetching quotes...[/dim]")
+    # Filter to specific symbols if provided
+    if symbols:
+        symbol_set = {s.strip().upper() for s in symbols.split(",")}
+        companies = [c for c in companies if c.symbol.upper() in symbol_set]
+
+    # Build company lookup for names
+    companies_by_symbol = {c.symbol.upper(): c for c in companies}
+
+    # Fetch quotes
+    console.print(f"[dim]Fetching quotes for {len(companies)} companies...[/dim]")
     results = []
-    for i, company in enumerate(companies):
+    for company in companies:
         try:
             q = client.get_quote(company.cmpy_id, company.symbol)
+            # Use company name from company list (more reliable than quote page)
+            company_name = companies_by_symbol.get(company.symbol.upper(), company).name
             results.append(ScanResult(
                 symbol=q.symbol,
-                company_name=q.company_name,
+                company_name=company_name,
                 last_price=q.last_price,
                 change=q.change,
                 percent_change=q.percent_change,
@@ -161,12 +175,11 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
                 pe_ratio=q.pe_ratio,
             ))
         except Exception:
-            pass  # Skip companies that fail to fetch
+            pass
 
     # Apply filters
     if sector:
         sector_lower = sector.lower()
-        companies_by_symbol = {c.symbol.upper(): c for c in companies}
         results = [r for r in results
                    if r.symbol in companies_by_symbol
                    and sector_lower in (companies_by_symbol[r.symbol].sector or "").lower()]
@@ -190,14 +203,15 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
 
     if top_gainers:
         results.sort(key=sort_key, reverse=True)
-        results = results[:10]
+        results = results[:min(10, limit)]
         title = "Top 10 Gainers"
     elif top_losers:
-        results.sort(key=sort_by)
-        results = results[:10]
+        results.sort(key=sort_key)
+        results = results[:min(10, limit)]
         title = "Top 10 Losers"
     else:
         results.sort(key=sort_key)
+        results = results[:limit]
         title = f"Stock Scan ({len(results)} results)"
 
     _print_scan_results(results, title)
