@@ -1,52 +1,93 @@
-# PSE Tools
+# Philippine Securities Engine (phse)
 
 CLI-first, modular tool for monitoring, analyzing, and generating trading recommendations for the Philippine Stock Exchange (PSE). Terminal-native output with rich formatting, SQLite caching, and interactive charts.
 
+## Features
+
+- **Live quotes** — Real-time price, volume, change with EOD-frozen SQLite caching
+- **Historical data** — OHLCV history (1m/3m/6m/1y) with multi-period support
+- **Technical analysis** — 7 indicators (SMA, EMA, RSI, MACD, Bollinger, ATR, VWAP) with composite scoring
+- **Signal engine** — BUY/HOLD/SELL signals from SMA/EMA crossovers, RSI thresholds, Bollinger breaks, MACD histogram
+- **Backtesting** — SMA crossover strategy with total return, win rate, max drawdown, Sharpe ratio
+- **Interactive charts** — TradingView-style candlestick charts with volume + indicator overlays
+- **Market scan** — Filter by sector, price range, volume; sort by change/volume/price
+- **Watchlist** — Add/remove/list/clear symbols with JSON storage
+- **Price alerts** — Set above/below thresholds, check triggers, reset alerts
+- **Fundamentals** — P/E, P/BV, market cap, 52-week range, book value
+- **Dividend tracker** — Track ex-dates, payment dates, dividend types
+- **Signal explanation** — See contributing factors behind each composite signal
+- **Market recap** — Top gainers, losers, volume leaders at a glance
+- **Dual data sources** — PSE Edge (rich data) + frames.pse.com.ph (fast fallback) with automatic merging
+- **Bootstrap** — Bulk download historical data for all or selected symbols
+
 ## Install
 
+### From PyPI (recommended)
+
 ```bash
+pip install phse-cli[chart]   # with chart support
+# or
+pip install phse-cli           # CLI only
+```
+
+### From Source (development)
+
+```bash
+git clone https://github.com/YOUR-USER/phse.git
+cd phse
 pip install -e ".[chart]"   # with chart support
 # or
 pip install -e .           # CLI only
+```
+
+### Update
+
+```bash
+# From PyPI
+pip install --upgrade phse-cli[chart]
+
+# From source
+git pull
+pip install -e .
 ```
 
 ## Quick Start
 
 ```bash
 # List all PSE-listed companies
-pse list
+phse list
 
 # View a stock quote
-pse quote DMC
+phse quote DMC
 
 # View historical prices
-pse history DMC --period 6m
+phse history DMC --period 6m
 
 # Scan for top gainers/losers
-pse scan --top-gainers
-pse scan --top-losers
-pse scan --symbols DMC,FGEN,GCASH
+phse scan --top-gainers
+phse scan --top-losers
+phse scan --symbols DMC,FGEN,GCASH
 
 # Technical analysis
-pse analyze DMC
-pse analyze DMC --period 1y
+phse analyze DMC
+phse analyze DMC --period 1y
 
 # Signal explanation
-pse why DMC
+phse why DMC
 
 # Market recap
-pse recap
+phse recap
 
 # Market-wide signals
-pse signals --buy
-pse signals --symbols DMC,FGEN
+phse signals --buy
+phse signals --symbols DMC,FGEN
 
 # Backtesting
-pse backtest DMC --period 1y
+phse backtest DMC --period 1y
 
 # Interactive charts
-pse chart DMC --period 1y
-pse chart FGEN --no-indicators
+phse chart DMC --period 1y
+phse chart FGEN --no-indicators
 ```
 
 ## Test Symbols
@@ -63,62 +104,62 @@ pse chart FGEN --no-indicators
 
 | Command | Description |
 |---------|-------------|
-| `pse list [--force]` | List all PSE-listed companies (cached, refreshes daily) |
-| `pse quote <SYMBOL> [--latest]` | Show latest stock quote (price, volume, change) |
-| `pse history <SYMBOL> [-p 1m\|3m\|6m\|1y]` | Show historical OHLCV data |
-| `pse-bootstrap [SYMBOLS...] [--all]` | Bootstrap historical data for symbols |
+| `phse list [--force]` | List all PSE-listed companies (cached, refreshes daily) |
+| `phse quote <SYMBOL> [--latest]` | Show latest stock quote (price, volume, change) |
+| `phse history <SYMBOL> [-p 1m\|3m\|6m\|1y]` | Show historical OHLCV data |
+| `phse-bootstrap [SYMBOLS...] [--all]` | Bootstrap historical data for symbols |
 
 ### Analysis
 
 | Command | Description |
 |---------|-------------|
-| `pse analyze <SYMBOL> [-p 1y]` | Full technical analysis with indicators, signals, support/resistance |
-| `pse signals [-b/--buy] [-s/--sell] [-S symbols]` | Market-wide signal scan with BUY/SELL/HOLD filtering |
-| `pse backtest <SYMBOL> [-p 1y] [-s 7] [-l 20]` | SMA crossover backtest with P&L stats |
+| `phse analyze <SYMBOL> [-p 1y]` | Full technical analysis with indicators, signals, support/resistance |
+| `phse signals [-b/--buy] [-s/--sell] [-S symbols]` | Market-wide signal scan with BUY/SELL/HOLD filtering |
+| `phse backtest <SYMBOL> [-p 1y] [-s 7] [-l 20]` | SMA crossover backtest with P&L stats |
 
 ### Charts
 
 | Command | Description |
 |---------|-------------|
-| `pse chart <SYMBOL> [-p 1y] [--indicators] [--no-block]` | Interactive candlestick chart with volume + indicator overlays |
+| `phse chart <SYMBOL> [-p 1y] [--indicators] [--no-block]` | Interactive candlestick chart with volume + indicator overlays |
 
 ### Watchlist & Alerts
 
 | Command | Description |
 |---------|-------------|
-| `pse watchlist list` | List watchlist symbols |
-| `pse watchlist add --symbol DMC` | Add symbol to watchlist |
-| `pse watchlist remove --symbol DMC` | Remove symbol from watchlist |
-| `pse watchlist clear` | Clear entire watchlist |
-| `pse alert add --symbol DMC --threshold 6.00 --below` | Set price alert |
-| `pse alert list` | List all alerts |
-| `pse alert check --symbol DMC` | Check if alerts triggered |
-| `pse alert reset` | Reset triggered alerts |
+| `phse watchlist list` | List watchlist symbols |
+| `phse watchlist add --symbol DMC` | Add symbol to watchlist |
+| `phse watchlist remove --symbol DMC` | Remove symbol from watchlist |
+| `phse watchlist clear` | Clear entire watchlist |
+| `phse alert add --symbol DMC --threshold 6.00 --below` | Set price alert |
+| `phse alert list` | List all alerts |
+| `phse alert check --symbol DMC` | Check if alerts triggered |
+| `phse alert reset` | Reset triggered alerts |
 
 ### Fundamentals & Dividends
 
 | Command | Description |
 |---------|-------------|
-| `pse fundamentals DMC` | Show company financial metrics |
-| `pse dividend list` | List all dividend records |
-| `pse dividend upcoming` | Show upcoming dividends |
-| `pse dividend add --symbol DMC --ex-date 2026-12-15 --payment-date 2027-01-15 --amount 0.50` | Add dividend record |
+| `phse fundamentals DMC` | Show company financial metrics |
+| `phse dividend list` | List all dividend records |
+| `phse dividend upcoming` | Show upcoming dividends |
+| `phse dividend add --symbol DMC --ex-date 2026-12-15 --payment-date 2027-01-15 --amount 0.50` | Add dividend record |
 
 ### Utilities
 
 | Command | Description |
 |---------|-------------|
-| `pse about` | Show tool info, version, data source |
+| `phse about` | Show tool info, version, data source |
 
 ## Scan Options
 
 ```bash
-pse scan --top-gainers          # Top 10 gainers
-pse scan --top-losers           # Top 10 losers
-pse scan --symbols DMC,FGEN     # Target specific stocks (bypasses full scan)
-pse scan -n 20                  # Limit results
-pse scan --sort volume          # Sort by field
-pse scan --price-min 10 --price-max 100  # Price range
+phse scan --top-gainers          # Top 10 gainers
+phse scan --top-losers           # Top 10 losers
+phse scan --symbols DMC,FGEN     # Target specific stocks (bypasses full scan)
+phse scan -n 20                  # Limit results
+phse scan --sort volume          # Sort by field
+phse scan --price-min 10 --price-max 100  # Price range
 ```
 
 ## Technical Analysis
@@ -147,7 +188,7 @@ pse scan --price-min 10 --price-max 100  # Price range
 ### Backtesting
 
 ```bash
-pse backtest DMC --period 1y --short 7 --long 20
+phse backtest DMC --period 1y --short 7 --long 20
 ```
 
 Outputs: total return, win rate, max drawdown, Sharpe ratio.
@@ -155,8 +196,8 @@ Outputs: total return, win rate, max drawdown, Sharpe ratio.
 ## Architecture
 
 ```
-pse-tools/
-├── pse/
+phse-cli/
+├── phse/
 │   ├── cli.py              # Typer CLI with all commands
 │   ├── config.py           # Settings (cache dir, throttle, etc.)
 │   ├── models.py           # Shared data models
@@ -187,7 +228,7 @@ pse-tools/
 │   └── why/
 │       └── why.py          # Signal explanation
 ├── tests/
-│   ├── test_pse_tools.py   # Core scraper & model tests
+│   ├── test_phse_cli.py   # Core scraper & model tests
 │   ├── test_analysis.py    # Indicator, signal, backtest tests
 │   └── test_chart.py       # Chart rendering tests
 ├── scripts/
@@ -215,7 +256,7 @@ No API key required. Prices are EOD-frozen in SQLite cache; metadata refreshes d
 
 ## Caching
 
-SQLite cache at `~/.pse-tools/cache.db`:
+SQLite cache at `~/.phse-cli/cache.db`:
 
 | Table | Refresh Policy |
 |-------|---------------|
@@ -247,11 +288,11 @@ pytest tests/test_chart.py -v      # Chart module
 ## CLI Reference
 
 ```bash
-pse --help                          # Show all commands
-pse COMMAND --help                  # Show command help
-pse watchlist --help                # Watchlist help
-pse alert --help                    # Alert help
-pse dividend --help                 # Dividend help
+phse --help                          # Show all commands
+phse COMMAND --help                  # Show command help
+phse watchlist --help                # Watchlist help
+phse alert --help                    # Alert help
+phse dividend --help                 # Dividend help
 ```
 
 ## License

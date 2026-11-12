@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pse-tools"
+name = "phse-cli"
 version = "0.1.0"
-description = "CLI tool for Philippine Stock Exchange (PSE) analysis"
+description = "Philippine Securities Engine (phse) CLI — PH stock analysis, signals, charts, and backtesting"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
@@ -34,11 +34,11 @@ chart = [
 ]
 
 [project.scripts]
-pse = "pse.cli:app"
-pse-bootstrap = "scripts.bootstrap_data:bootstrap"
+phse = "phse.cli:app"
+phse-bootstrap = "scripts.bootstrap_data:bootstrap"
 
 [tool.hatch.build.targets.wheel]
-packages = ["pse"]
+packages = ["phse"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
