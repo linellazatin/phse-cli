@@ -134,6 +134,71 @@ class FramesPseClient:
             result.append(s)
         return result
 
+    def market_summary(self) -> dict:
+        """Derive market-wide summary from raw frames data.
+
+        Returns a dict with: gainers, losers, most_active, volume_leaders,
+        advancers, decliners, unchanged, total_volume, total_value.
+        """
+        stocks = self._get_raw_stocks()
+
+        # Separate by change direction
+        gainers = []
+        losers = []
+        unchanged = []
+        total_volume = 0
+        total_value = 0.0
+
+        for s in stocks:
+            symbol = s.get("StockSymbol", "")
+            name = s.get("StockName", "")
+            try:
+                price = float(s.get("Price", "0")) if s.get("Price") else 0
+                volume = int(s.get("Volume", "0")) if s.get("Volume") else 0
+                raw_value = s.get("Value", "0")
+                value = float(str(raw_value).replace(",", "")) if raw_value else 0
+                pct_change = float(s.get("PercentChange", "0")) if s.get("PercentChange") else 0
+            except (ValueError, TypeError):
+                continue
+
+            total_volume += volume
+            total_value += value
+
+            entry = {
+                "symbol": symbol,
+                "name": name,
+                "price": price,
+                "volume": volume,
+                "value": value,
+                "percent_change": pct_change,
+            }
+
+            if pct_change > 0:
+                gainers.append(entry)
+            elif pct_change < 0:
+                losers.append(entry)
+            else:
+                unchanged.append(entry)
+
+        gainers.sort(key=lambda x: x["percent_change"], reverse=True)
+        losers.sort(key=lambda x: x["percent_change"])
+        most_active_by_value = sorted(
+            stocks, key=lambda x: float(str(x.get("Value", "0")).replace(",", "") or 0), reverse=True
+        )
+        volume_leaders = sorted(stocks, key=lambda x: int(x.get("Volume", 0) or 0), reverse=True)
+
+        return {
+            "gainers": gainers[:20],
+            "losers": losers[:20],
+            "most_active": most_active_by_value[:20],
+            "volume_leaders": volume_leaders[:20],
+            "advancers": len(gainers),
+            "decliners": len(losers),
+            "unchanged": len(unchanged),
+            "total_volume": total_volume,
+            "total_value": total_value,
+        }
+
     def resolve_symbol(self, symbol: str) -> Optional[dict]:
         """Resolve a stock symbol to its frames data dict (or None)."""
         stocks = self._get_raw_stocks()
