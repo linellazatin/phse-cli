@@ -4,8 +4,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from pse.chart.renderer import render_chart
-from pse.data.models import OHLCV
+from phse.chart.renderer import render_chart
+from phse.data.models import OHLCV
 
 
 def _make_ohlcv(n: int = 50, base_price: float = 10.0) -> list[OHLCV]:
@@ -35,7 +35,7 @@ class TestRenderChart:
 
     def test_render_with_indicators(self):
         """Render a chart with indicator overlays."""
-        from pse.analysis import compute_indicators
+        from phse.analysis import compute_indicators
 
         ohlcv = _make_ohlcv(n=50)
         indicators = compute_indicators(ohlcv, "TEST")

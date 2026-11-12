@@ -13,8 +13,8 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 
-from pse.config import get_settings
-from pse.data.pse_edge import PseEdgeClient
+from phse.config import get_settings
+from phse.data.pse_edge import PseEdgeClient
 
 
 def bootstrap(symbols: list[str], period: str = "1y", all_companies: bool = False):

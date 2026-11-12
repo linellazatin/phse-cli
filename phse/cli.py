@@ -1,4 +1,4 @@
-"""PSE Tools CLI — Philippine Stock Exchange analysis tool."""
+"""Philippine Securities Engine (phse) CLI - Philippine Stock Exchange analysis tool."""
 
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ from .data.models import Company, Quote, OHLCV, ScanResult
 from .data.pse_edge import PseEdgeClient
 
 app = typer.Typer(
-    name="pse",
-    help="PSE Tools — Philippine Stock Exchange CLI",
+    name="phse",
+    help="Philippine Securities Engine (phse) CLI",
     add_completion=True,
     no_args_is_help=True,
 )
@@ -58,7 +58,7 @@ def quote(symbol: str, latest: bool = typer.Option(False, "--latest", "-l",
     company = client.resolve_symbol(symbol)
     if not company:
         console.print(f"[bold red]Error: Symbol '{symbol}' not found in PSE directory.[/bold red]")
-        console.print("Run [bold]pse list[/bold] to see all listed companies.")
+        console.print("Run [bold]phse list[/bold] to see all listed companies.")
         raise typer.Exit(code=1)
 
     # Fetch quote
@@ -421,8 +421,8 @@ def alert(
             console.print("[bold red]Error: --symbol is required for check.[/bold red]")
             raise typer.Exit(code=1)
         # Fetch current price
-        from pse.data.pse_edge import PseEdgeClient
-        from pse.config import get_settings
+        from phse.data.pse_edge import PseEdgeClient
+        from phse.config import get_settings
         client = PseEdgeClient(get_settings())
         quote = client.get_quote(0, symbol)
         if quote is None or quote.last_price is None:
@@ -618,14 +618,14 @@ def signals(top_gainers: bool = typer.Option(False, "--buy", "-b",
 
 @app.command()
 def about():
-    """Show PSE Tools info."""
+    """Show phse cli info."""
     console.print(Panel(
-        Text("PSE Tools — Philippine Stock Exchange CLI\n"
+        Text("Philippine Securities Engine (phse) CLI\n"
              "A modular tool for scanning, analyzing, and charting PSE stocks.\n\n"
              "Data source: PSE Edge (edge.pse.com.ph)\n"
              "Version: 0.1.0",
              style="cyan"),
-        title="[bold]PSE Tools[/bold]",
+        title="[bold]phse cli[/bold]",
         border_style="blue",
     ))
 

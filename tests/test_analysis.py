@@ -4,9 +4,9 @@ from datetime import date
 
 import pytest
 
-from pse.analysis import compute_indicators, generate_signals, backtest_sma_crossover
-from pse.analysis.models import IndicatorResult, Signal, AnalysisResult
-from pse.data.models import OHLCV
+from phse.analysis import compute_indicators, generate_signals, backtest_sma_crossover
+from phse.analysis.models import IndicatorResult, Signal, AnalysisResult
+from phse.data.models import OHLCV
 
 
 def _make_ohlcv(n: int = 50, base_price: float = 10.0) -> list[OHLCV]:
@@ -135,8 +135,8 @@ class TestBacktest:
 
     def test_backtest_with_real_data(self):
         """Backtest runs on real PSE data."""
-        from pse.data.pse_edge import PseEdgeClient
-        from pse.config import get_settings
+        from phse.data.pse_edge import PseEdgeClient
+        from phse.config import get_settings
         from datetime import datetime, timezone, timedelta
 
         client = PseEdgeClient(get_settings())

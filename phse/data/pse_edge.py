@@ -27,7 +27,7 @@ class PseEdgeClient:
             timeout=self.settings.request_timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "pse-tools/0.1.0 (CLI; +https://github.com/pse-tools)",
+                "User-Agent": "phse-cli/0.1.0 (CLI; +https://github.com/phse-cli)",
                 "Accept": "text/html,application/xhtml+xml,application/json,*/*",
             },
         )

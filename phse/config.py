@@ -1,4 +1,4 @@
-"""Configuration for PSE Tools."""
+"""Configuration for Philippine Securities Engine (phse) CLI"""
 
 import os
 from pathlib import Path
@@ -17,12 +17,12 @@ class Settings(BaseModel, frozen=True):
     throttle_delay: float = 0.5  # seconds between requests
 
     # Cache settings
-    cache_dir: Path = Path.home() / ".pse-tools" / "cache"
+    cache_dir: Path = Path.home() / ".phse-cli" / "cache"
     cache_ttl_seconds: int = 3600  # 1 hour for live data
     cache_ttl_eod_seconds: int = 86400  # 24 hours for EOD data
 
     # Watchlist
-    watchlist_path: Path = Path.home() / ".pse-tools" / "watchlist.json"
+    watchlist_path: Path = Path.home() / ".phse-cli" / "watchlist.json"
 
     # Market hours (Asia/Manila)
     market_open_hour: int = 9
@@ -32,7 +32,7 @@ class Settings(BaseModel, frozen=True):
 
     @property
     def db_path(self) -> Path:
-        return self.cache_dir / "pse.db"
+        return self.cache_dir / "phse.db"
 
     @property
     def company_cache_path(self) -> Path:

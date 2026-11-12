@@ -1,8 +1,8 @@
-"""Custom exceptions for PSE Tools."""
+"""Custom exceptions for Philippine Securities Engine (phse) CLI"""
 
 
 class PseError(Exception):
-    """Base exception for PSE Tools."""
+    """Base exception for Philippine Securities Engine (phse) CLI"""
 
 
 class PseScrapeError(PseError):

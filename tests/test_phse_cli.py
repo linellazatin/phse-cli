@@ -1,15 +1,15 @@
-"""Tests for PSE tools core functionality."""
+"""Tests for Philippine Securities Engine (phse) CLI core functionality."""
 
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from bs4 import BeautifulSoup
 
-from pse.config import get_settings
-from pse.data.models import Company, Quote, OHLCV
-from pse.data.pse_edge import PseEdgeClient
-from pse.data.frames_pse import FramesPseClient
-from pse.data.unified import UnifiedPseClient
+from phse.config import get_settings
+from phse.data.models import Company, Quote, OHLCV
+from phse.data.pse_edge import PseEdgeClient
+from phse.data.frames_pse import FramesPseClient
+from phse.data.unified import UnifiedPseClient
 
 
 class TestSettings:
