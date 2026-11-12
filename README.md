@@ -294,6 +294,11 @@ phse watchlist --help                # Watchlist help
 phse alert --help                    # Alert help
 phse dividend --help                 # Dividend help
 ```
+## Known Issues
+
+- **Chart semaphore leak**: `phse chart` may leave leaked multiprocessing semaphores on exit. This is a known issue with `lightweight-charts-python` and doesn't affect functionality.
+- **P/E, P/BV, Book Value**: These fields show "N/A" because PSE Edge doesn't provide them in the quote page. They would need to be scraped from a fundamentals page or fetched from an alternative source.
+- **Sector display**: Sector information is now populated from the unified client, but some stocks may show empty sector if the PSE Edge company list doesn't have sector data for that symbol.
 
 ## License
 

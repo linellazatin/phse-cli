@@ -30,3 +30,8 @@
 - **44 tests** passing (models, scraper, indicators, signals, backtest, chart)
 - **Pydantic models**: Company, Quote, OHLCV, TechnicalSignal, AnalysisResult, ScanResult, WatchlistEntry, Alert, MarketSummary
 - **Tech stack**: Typer, httpx, lxml, Pydantic, pandas, ta, lightweight-charts-python, rich, aiosqlite
+- **Recap performance**: `phse recap` now runs in ~1.3s using a single frames.pse.com.ph API call (previously ~24s with per-stock fetching). All 367 companies are analyzed for gainers/losers/volume.
+
+### Known Issues
+
+see the [section in README](README.md#known-issues).
