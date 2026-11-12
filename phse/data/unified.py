@@ -31,10 +31,21 @@ class UnifiedPseClient:
     # ── Company Directory ───────────────────────────────────────────────
 
     def get_companies(self) -> list[Company]:
-        """Fetch companies from frames_pse, falling back to pse_edge."""
+        """Fetch companies from frames_pse, falling back to pse_edge.
+        
+        Merges sector info from pse_edge company list.
+        """
         try:
-            return self.frames.get_companies()
-        except Exception as e:
+            companies = self.frames.get_companies()
+            # Merge sector info from pse_edge
+            edge_companies = {c.symbol.upper(): c for c in self.edge.get_companies()}
+            for company in companies:
+                edge = edge_companies.get(company.symbol.upper())
+                if edge:
+                    company.sector = edge.sector
+                    company.subsector = edge.subsector
+            return companies
+        except Exception:
             return self.edge.get_companies()
 
     def resolve_symbol(self, symbol: str) -> Optional[Company]:
@@ -77,6 +88,9 @@ class UnifiedPseClient:
                 enriched.value = base_quote.value
                 enriched.as_of = base_quote.as_of
                 enriched.stale = base_quote.stale
+            # Add sector from company list
+            enriched.sector = company.sector or enriched.sector
+            enriched.subsector = company.subsector or enriched.subsector
             return enriched
 
         if base_quote:

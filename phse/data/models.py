@@ -50,6 +50,8 @@ class Quote(BaseModel):
     pe_ratio: Optional[float] = None
     pb_ratio: Optional[float] = None
     book_value: Optional[float] = None
+    sector: str = ""
+    subsector: str = ""
 
     # Range
     week_52_high: Optional[float] = None
@@ -130,6 +132,7 @@ class ScanResult(BaseModel):
     value: Optional[float] = None  # trading value = volume × price
     market_cap: Optional[float] = None
     sector: str = ""
+    subsector: str = ""
     pe_ratio: Optional[float] = None
 
 

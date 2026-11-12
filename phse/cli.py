@@ -198,6 +198,7 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
                 value=trade_value,
                 market_cap=q.market_cap,
                 sector=company.sector,
+                subsector=company.subsector,
                 pe_ratio=q.pe_ratio,
             ))
         except Exception:

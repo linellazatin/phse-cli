@@ -17,25 +17,24 @@ console = Console()
 
 def market_recap() -> None:
     """Print a market recap with top gainers, losers, and volume leaders."""
-    # Use PSE Edge directly for speed (frames would be too slow for 30+ companies)
-    client = PseEdgeClient(get_settings())
+    # Use frames.pse.com.ph for market-wide data (single API call, 234 valid stocks)
+    from ..data.frames_pse import FramesPseClient
     
-    # Fetch all companies
-    companies = client.get_companies()
-    if not companies:
-        console.print("[bold red]Could not fetch company list.[/bold red]")
-        return
+    frames = FramesPseClient(get_settings())
     
-    # Fetch quotes for all companies
+    # Get quotes for all stocks with non-zero volume (limit for performance)
     quotes = []
-    for company in companies[:20]:  # Limit for performance
+    for stock in frames.get_companies()[:30]:
         try:
-            quote = client.get_quote(company.cmpy_id, company.symbol)
-            if quote and quote.last_price and quote.volume and quote.volume > 0:
-                if quote.percent_change is not None:
-                    quotes.append(quote)
+            q = frames.get_quote(stock.symbol)
+            if q and q.last_price and q.volume and q.volume > 0 and q.percent_change is not None:
+                quotes.append(q)
         except Exception:
             continue
+    
+    if not quotes:
+        console.print("[bold red]No valid quotes available.[/bold red]")
+        return
     
     if not quotes:
         console.print("[bold red]No valid quotes available.[/bold red]")
