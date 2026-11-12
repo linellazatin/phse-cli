@@ -127,6 +127,7 @@ class ScanResult(BaseModel):
     change: Optional[float] = None
     percent_change: Optional[float] = None
     volume: Optional[int] = None
+    value: Optional[float] = None  # trading value = volume × price
     market_cap: Optional[float] = None
     sector: str = ""
     pe_ratio: Optional[float] = None

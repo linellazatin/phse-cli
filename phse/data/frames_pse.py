@@ -180,7 +180,11 @@ class FramesPseClient:
             volume = 0
 
         try:
-            value = float(stock.get("Value", "0")) if stock.get("Value") else None
+            raw_value = stock.get("Value", "0")
+            if raw_value:
+                value = float(str(raw_value).replace(",", ""))
+            else:
+                value = None
         except (ValueError, TypeError):
             value = None
 

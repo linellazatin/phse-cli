@@ -7,14 +7,19 @@ from typing import Optional
 from ..config import Settings, get_settings
 from ..data.models import ScanResult
 from ..data.pse_edge import PseEdgeClient
+from ..data.unified import UnifiedPseClient
 
 
 class StockScreener:
     """Screen PSE stocks by various criteria."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Optional[Settings] = None, use_unified: bool = True):
         self.settings = settings or get_settings()
-        self.client = PseEdgeClient(self.settings)
+        self.use_unified = use_unified
+        if use_unified:
+            self.client = UnifiedPseClient(self.settings)
+        else:
+            self.client = PseEdgeClient(self.settings)
 
     def scan(self,
              sector: Optional[str] = None,
@@ -23,6 +28,7 @@ class StockScreener:
              min_volume: Optional[int] = None,
              top_gainers: bool = False,
              top_losers: bool = False,
+             most_active: bool = False,
              limit: int = 50) -> list[ScanResult]:
         """Run a stock screen with the given filters.
 
@@ -42,6 +48,11 @@ class StockScreener:
             try:
                 quote = self.client.get_quote(company.cmpy_id, company.symbol)
                 company_name = companies_by_symbol.get(company.symbol.upper(), company).name
+                # Use quote.value if available (from frames), otherwise calculate
+                trade_value = quote.value
+                if trade_value is None and quote.volume and quote.last_price:
+                    trade_value = quote.volume * quote.last_price
+
                 results.append(ScanResult(
                     symbol=quote.symbol,
                     company_name=company_name,
@@ -49,6 +60,7 @@ class StockScreener:
                     change=quote.change,
                     percent_change=quote.percent_change,
                     volume=quote.volume,
+                    value=trade_value,
                     market_cap=quote.market_cap,
                     sector=company.sector,
                     pe_ratio=quote.pe_ratio,
@@ -75,6 +87,8 @@ class StockScreener:
             results.sort(key=lambda r: r.percent_change or 0, reverse=True)
         elif top_losers:
             results.sort(key=lambda r: r.percent_change or 0)
+        elif most_active:
+            results.sort(key=lambda r: r.value or 0, reverse=True)
         else:
             results.sort(key=lambda r: r.symbol)
 

@@ -10,12 +10,14 @@ from rich.table import Table
 
 from ..config import get_settings
 from ..data.pse_edge import PseEdgeClient
+from ..data.unified import UnifiedPseClient
 
 console = Console()
 
 
 def market_recap() -> None:
     """Print a market recap with top gainers, losers, and volume leaders."""
+    # Use PSE Edge directly for speed (frames would be too slow for 30+ companies)
     client = PseEdgeClient(get_settings())
     
     # Fetch all companies
@@ -26,7 +28,7 @@ def market_recap() -> None:
     
     # Fetch quotes for all companies
     quotes = []
-    for company in companies[:50]:  # Limit to 50 for performance
+    for company in companies[:20]:  # Limit for performance
         try:
             quote = client.get_quote(company.cmpy_id, company.symbol)
             if quote and quote.last_price and quote.volume and quote.volume > 0:
@@ -39,10 +41,11 @@ def market_recap() -> None:
         console.print("[bold red]No valid quotes available.[/bold red]")
         return
     
-    # Sort by change
+    # Sort by change and value
     gainers = sorted(quotes, key=lambda q: q.percent_change or 0, reverse=True)[:10]
     losers = sorted(quotes, key=lambda q: q.percent_change or 0)[:10]
     volume_leaders = sorted(quotes, key=lambda q: q.volume or 0, reverse=True)[:10]
+    most_active = sorted(quotes, key=lambda q: (q.value or (q.volume or 0) * (q.last_price or 0)), reverse=True)[:10]
     
     # Print recap
     console.print()
@@ -97,6 +100,25 @@ def market_recap() -> None:
             q.symbol,
             f"{q.last_price:.2f}" if q.last_price else "—",
             f"{q.volume:,}" if q.volume else "—",
+            f"[{change_color}]{q.percent_change:+.2f}%[/]" if q.percent_change else "—",
+        )
+    console.print(table)
+    
+    # Most active by value
+    table = Table(title="[bold]Most Active by Value[/]", show_header=True, header_style="bold")
+    table.add_column("Symbol", style="cyan")
+    table.add_column("Price", justify="right")
+    table.add_column("Volume", justify="right")
+    table.add_column("Value", justify="right")
+    table.add_column("% Change", justify="right")
+    for q in most_active:
+        trade_val = q.value or (q.volume or 0) * (q.last_price or 0)
+        change_color = "green" if (q.percent_change or 0) > 0 else "red"
+        table.add_row(
+            q.symbol,
+            f"{q.last_price:.2f}" if q.last_price else "—",
+            f"{q.volume:,}" if q.volume else "—",
+            f"₱{trade_val:,.0f}" if trade_val else "—",
             f"[{change_color}]{q.percent_change:+.2f}%[/]" if q.percent_change else "—",
         )
     console.print(table)

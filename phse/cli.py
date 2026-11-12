@@ -136,6 +136,8 @@ def list(force: bool = typer.Option(False, "--force", "-f",
 @app.command()
 def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
          top_losers: bool = typer.Option(False, "--top-losers", "-l"),
+         most_active: bool = typer.Option(False, "--most-active", "-m",
+                                            help="Show most active stocks by trading value"),
          symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
                                                 help="Comma-separated symbols to scan (e.g. DMC,FGEN)"),
          sector: Optional[str] = typer.Option(None, "--sector", "-s",
@@ -152,7 +154,8 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
                                       help="Sort by: symbol, change, volume, price"),
 ):
     """Scan PSE stocks with filters and sorting."""
-    client = PseEdgeClient(settings)
+    from .data.unified import UnifiedPseClient
+    client = UnifiedPseClient(settings)
 
     # Get companies
     try:
@@ -178,9 +181,13 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
     results = []
     for company in companies:
         try:
-            q = client.get_quote(company.cmpy_id, company.symbol)
+            q = client.get_quote(company.symbol)
             # Use company name from company list (more reliable than quote page)
             company_name = companies_by_symbol.get(company.symbol.upper(), company).name
+            # Use quote.value if available (from frames), otherwise calculate
+            trade_value = q.value
+            if trade_value is None and q.volume and q.last_price:
+                trade_value = q.volume * q.last_price
             results.append(ScanResult(
                 symbol=q.symbol,
                 company_name=company_name,
@@ -188,6 +195,7 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
                 change=q.change,
                 percent_change=q.percent_change,
                 volume=q.volume,
+                value=trade_value,
                 market_cap=q.market_cap,
                 sector=company.sector,
                 pe_ratio=q.pe_ratio,
@@ -227,6 +235,10 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
         results.sort(key=sort_key)
         results = results[:min(10, limit)]
         title = "Top 10 Losers"
+    elif most_active:
+        results.sort(key=lambda r: r.value or 0, reverse=True)
+        results = results[:min(10, limit)]
+        title = "Top 10 Most Active"
     else:
         results.sort(key=sort_key)
         results = results[:limit]
@@ -703,6 +715,7 @@ def _print_scan_results(results: list[ScanResult], title: str):
     table.add_column("Price", style="white", width=12)
     table.add_column("Change", style="green", width=12)
     table.add_column("Volume", style="dim", width=15)
+    table.add_column("Value", style="dim", width=18)
     table.add_column("Mkt Cap", style="dim", width=15)
     table.add_column("Sector", style="green", width=20)
 
@@ -715,6 +728,7 @@ def _print_scan_results(results: list[ScanResult], title: str):
             f"{r.last_price:,.2f}" if r.last_price else "N/A",
             f"[{change_style}]{change_str}[/{change_style}]",
             f"{r.volume:,}" if r.volume else "N/A",
+            f"₱{r.value:,.0f}" if r.value else "N/A",
             f"{r.market_cap:,.0f}" if r.market_cap else "N/A",
             r.sector or "—",
         )
