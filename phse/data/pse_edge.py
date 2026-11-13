@@ -5,34 +5,46 @@ from __future__ import annotations
 import json
 import re
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urljoin
 
 import httpx
 from bs4 import BeautifulSoup
 
 from ..config import Settings, get_settings
-from .models import Company, OHLCV, Quote
-from .exceptions import PseHttpError, PseScrapeError
+from .exceptions import PseHttpError
+from .models import OHLCV, Company, Quote
+
+
+@dataclass
+class HealthCheckResult:
+    """Result of a PSE Edge health check."""
+    healthy: bool
+    entry_count: int = 0
+    error: str | None = None
+
+
+# Module-level health check cache: {timestamp: HealthCheckResult}
+_health_cache: dict[str, tuple[HealthCheckResult, float]] = {}
 
 
 class PseEdgeClient:
     """HTTP client + parser for PSE Edge endpoints."""
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = self.settings.pse_base_url
         self._client = httpx.Client(
             timeout=self.settings.request_timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "phse-cli/0.1.0 (CLI; +https://github.com/phse-cli)",
+                "User-Agent": "phse-cli/0.1.1 (CLI; +https://github.com/phse-cli)",
                 "Accept": "text/html,application/xhtml+xml,application/json,*/*",
             },
         )
 
-    def _get(self, path: str, params: Optional[dict] = None) -> httpx.Response:
+    def _get(self, path: str, params: dict | None = None) -> httpx.Response:
         """Make a GET request to PSE Edge."""
         url = urljoin(self.base_url, path)
         try:
@@ -44,8 +56,8 @@ class PseEdgeClient:
         except httpx.RequestError as e:
             raise PseHttpError(f"Request failed: {e}", url=url) from e
 
-    def _post(self, path: str, data: Optional[dict] = None,
-              json: Optional[dict] = None) -> httpx.Response:
+    def _post(self, path: str, data: dict | None = None,
+              json: dict | None = None) -> httpx.Response:
         """Make a POST request to PSE Edge."""
         url = urljoin(self.base_url, path)
         try:
@@ -159,7 +171,7 @@ class PseEdgeClient:
 
         return companies
 
-    def resolve_symbol(self, symbol: str) -> Optional[Company]:
+    def resolve_symbol(self, symbol: str) -> Company | None:
         """Resolve a stock symbol to a Company by searching the directory."""
         companies = self.get_companies()
         symbol_upper = symbol.upper()
@@ -361,7 +373,7 @@ class PseEdgeClient:
             return []
 
         # Map period to date range
-        end_date = datetime.now(timezone.utc).date()
+        end_date = datetime.now(UTC).date()
         periods = {
             "1m": 30,
             "3m": 90,
@@ -524,9 +536,9 @@ class PseEdgeClient:
     # ── Helpers ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def _parse_float(text: str) -> Optional[float]:
+    def _parse_float(text: str) -> float | None:
         """Parse a float from text, handling commas, percentages, and trailing text."""
-        if not text or text == "N/A" or text == "-":
+        if not text or text in {"N/A", "-"}:
             return None
         text = text.replace(",", "").replace("%", "").strip()
         # Extract leading number (handles "6.83\n    (Nov 11, 2026)")
@@ -539,9 +551,9 @@ class PseEdgeClient:
         return None
 
     @staticmethod
-    def _parse_int(text: str) -> Optional[int]:
+    def _parse_int(text: str) -> int | None:
         """Parse an integer from text, handling commas."""
-        if not text or text == "N/A" or text == "-":
+        if not text or text in {"N/A", "-"}:
             return None
         text = text.replace(",", "")
         try:
@@ -550,15 +562,61 @@ class PseEdgeClient:
             return None
 
     @staticmethod
-    def _parse_percent(text: str) -> Optional[float]:
+    def _parse_percent(text: str) -> float | None:
         """Parse a percentage value from text."""
         if not text:
             return None
         # Handle formats like "0.52%", "+0.52%", "-0.52%", "0.52"
         text = text.replace("%", "").strip()
-        if text.startswith("+"):
-            text = text[1:]
+        text = text.removeprefix("+")
         try:
             return float(text)
         except ValueError:
             return None
+
+    # ── Health Check ──────────────────────────────────────────────────
+
+    def health_check(self) -> HealthCheckResult:
+        """Smoke test PSE Edge availability.
+
+        Checks HTTP reachability and validates the company directory
+        returns a plausible number of entries. Result is cached for
+        5 minutes to avoid repeated pings.
+        """
+        now = time.time()
+        cache_key = "edge_health"
+        cached = _health_cache.get(cache_key)
+        if cached and (now - cached[1]) < 300:
+            return cached[0]
+
+        try:
+            resp = self._get("/companyDirectory/search.ax")
+            if resp.status_code != 200:
+                result = HealthCheckResult(healthy=False, error=f"HTTP {resp.status_code}")
+                _health_cache[cache_key] = (result, now)
+                return result
+
+            soup = BeautifulSoup(resp.text, "lxml")
+            count_span = soup.find("span", class_="count")
+            entry_count = 0
+            if count_span:
+                count_text = count_span.get_text()
+                page_match = re.search(r"\[\s*(\d+)\s*/\s*(\d+)\s*\]", count_text)
+                if page_match:
+                    entry_count = int(page_match.group(2))
+
+            # Also count table rows as a sanity check
+            table = soup.find("table", class_="list")
+            if table:
+                rows = table.find_all("tr")
+                entry_count = max(entry_count, len(rows))
+
+            result = HealthCheckResult(
+                healthy=entry_count > 50,
+                entry_count=entry_count,
+            )
+        except Exception as e:
+            result = HealthCheckResult(healthy=False, error=str(e))
+
+        _health_cache[cache_key] = (result, now)
+        return result

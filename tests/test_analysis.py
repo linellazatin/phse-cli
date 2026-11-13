@@ -1,11 +1,8 @@
 """Tests for analysis module."""
 
-from datetime import date
+from datetime import UTC, date
 
-import pytest
-
-from phse.analysis import compute_indicators, generate_signals, backtest_sma_crossover
-from phse.analysis.models import IndicatorResult, Signal, AnalysisResult
+from phse.analysis import backtest_sma_crossover, compute_indicators, generate_signals
 from phse.data.models import OHLCV
 
 
@@ -135,13 +132,14 @@ class TestBacktest:
 
     def test_backtest_with_real_data(self):
         """Backtest runs on real PSE data."""
-        from phse.data.pse_edge import PseEdgeClient
+        from datetime import datetime, timedelta
+
         from phse.config import get_settings
-        from datetime import datetime, timezone, timedelta
+        from phse.data.pse_edge import PseEdgeClient
 
         client = PseEdgeClient(get_settings())
-        end_date = datetime.now(timezone.utc).date()
-        start_date = end_date - timedelta(days=365)
+        end_date = datetime.now(UTC).date()
+        end_date - timedelta(days=365)
 
         # Use GCASH (limited history but sufficient for basic test)
         ohlcv = client.get_price_history(709, "GCASH")

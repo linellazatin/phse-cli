@@ -4,7 +4,11 @@ from datetime import date, timedelta
 
 import pytest
 
-from phse.chart.renderer import render_chart
+try:
+    from phse.chart.renderer import render_chart
+except ImportError:
+    render_chart = None  # lightweight-charts optional
+
 from phse.data.models import OHLCV
 
 
@@ -25,6 +29,7 @@ def _make_ohlcv(n: int = 50, base_price: float = 10.0) -> list[OHLCV]:
 
 
 class TestRenderChart:
+    @pytest.mark.skipif(render_chart is None, reason="lightweight-charts not installed")
     def test_render_basic(self):
         """Render a basic chart without indicators."""
         ohlcv = _make_ohlcv(n=50)
@@ -33,6 +38,7 @@ class TestRenderChart:
         # Chart object is created successfully
         assert hasattr(chart, 'candle_data') or hasattr(chart, 'data')
 
+    @pytest.mark.skipif(render_chart is None, reason="lightweight-charts not installed")
     def test_render_with_indicators(self):
         """Render a chart with indicator overlays."""
         from phse.analysis import compute_indicators
@@ -43,11 +49,13 @@ class TestRenderChart:
         assert chart is not None
         assert len(chart.candle_data) == 50
 
+    @pytest.mark.skipif(render_chart is None, reason="lightweight-charts not installed")
     def test_render_empty_raises(self):
         """Rendering empty OHLCV raises ValueError."""
         with pytest.raises(ValueError, match="No OHLCV data"):
             render_chart("TEST", [])
 
+    @pytest.mark.skipif(render_chart is None, reason="lightweight-charts not installed")
     def test_render_small_data(self):
         """Rendering data with < 20 bars still works."""
         ohlcv = _make_ohlcv(n=5)
@@ -55,6 +63,7 @@ class TestRenderChart:
         assert chart is not None
         assert len(chart.candle_data) == 5
 
+    @pytest.mark.skipif(render_chart is None, reason="lightweight-charts not installed")
     def test_chart_has_volume(self):
         """Chart has volume data configured."""
         ohlcv = _make_ohlcv(n=50)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..config import Settings, get_settings
 from ..data.models import ScanResult
 from ..data.pse_edge import PseEdgeClient
@@ -13,7 +11,7 @@ from ..data.unified import UnifiedPseClient
 class StockScreener:
     """Screen PSE stocks by various criteria."""
 
-    def __init__(self, settings: Optional[Settings] = None, use_unified: bool = True):
+    def __init__(self, settings: Settings | None = None, use_unified: bool = True):
         self.settings = settings or get_settings()
         self.use_unified = use_unified
         if use_unified:
@@ -22,10 +20,10 @@ class StockScreener:
             self.client = PseEdgeClient(self.settings)
 
     def scan(self,
-             sector: Optional[str] = None,
-             min_price: Optional[float] = None,
-             max_price: Optional[float] = None,
-             min_volume: Optional[int] = None,
+             sector: str | None = None,
+             min_price: float | None = None,
+             max_price: float | None = None,
+             min_volume: int | None = None,
              top_gainers: bool = False,
              top_losers: bool = False,
              most_active: bool = False,

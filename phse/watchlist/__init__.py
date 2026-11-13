@@ -15,13 +15,13 @@ from .watchlist import (
 )
 
 __all__ = [
-    "watchlist_add",
-    "watchlist_remove",
-    "watchlist_list",
-    "watchlist_clear",
     "alert_add",
-    "alert_remove",
-    "alert_list",
     "alert_check",
+    "alert_list",
+    "alert_remove",
     "alert_reset",
+    "watchlist_add",
+    "watchlist_clear",
+    "watchlist_list",
+    "watchlist_remove",
 ]

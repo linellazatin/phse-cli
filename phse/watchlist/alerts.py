@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from ..config import get_settings
-from ..data.models import Quote
 
 
 @dataclass
@@ -19,8 +17,8 @@ class PriceAlert:
     threshold: float
     above: bool  # True = above, False = below
     triggered: bool = False
-    triggered_at: Optional[str] = None
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    triggered_at: str | None = None
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 def _alerts_path() -> Path:
@@ -40,7 +38,7 @@ def _load_alerts() -> list[PriceAlert]:
         with open(path) as f:
             data = json.load(f)
         return [PriceAlert(**a) for a in data] if isinstance(data, list) else []
-    except (json.JSONDecodeError, IOError, TypeError):
+    except (OSError, json.JSONDecodeError, TypeError):
         return []
 
 
@@ -70,7 +68,7 @@ def alert_add(symbol: str, threshold: float, above: bool = True) -> str:
     return f"Alert: '{symbol}' {direction} {threshold}"
 
 
-def alert_remove(symbol: str, threshold: Optional[float] = None) -> str:
+def alert_remove(symbol: str, threshold: float | None = None) -> str:
     """Remove a price alert."""
     alerts = _load_alerts()
     if threshold is not None:
@@ -89,28 +87,27 @@ def alert_list() -> list[dict]:
     return [asdict(a) for a in alerts]
 
 
-def alert_check(current_price: float, symbol: str) -> list[PriceAlert]:
-    """Check if any alerts are triggered for a symbol at the given price."""
+def alert_check(current_price: float, symbol: str) -> tuple[list[PriceAlert], float]:
+    """Check if any alerts are triggered for a symbol at the given price.
+
+    Returns (triggered_alerts, triggering_price).
+    """
     symbol = symbol.upper()
     alerts = _load_alerts()
     triggered = []
     for alert in alerts:
         if alert.symbol != symbol or alert.triggered:
             continue
-        if alert.above and current_price >= alert.threshold:
+        if alert.above and current_price >= alert.threshold or not alert.above and current_price <= alert.threshold:
             alert.triggered = True
-            alert.triggered_at = datetime.now(timezone.utc).isoformat()
-            triggered.append(alert)
-        elif not alert.above and current_price <= alert.threshold:
-            alert.triggered = True
-            alert.triggered_at = datetime.now(timezone.utc).isoformat()
+            alert.triggered_at = datetime.now(UTC).isoformat()
             triggered.append(alert)
     if triggered:
         _save_alerts(alerts)
-    return triggered
+    return triggered, current_price
 
 
-def alert_reset(symbol: Optional[str] = None) -> str:
+def alert_reset(symbol: str | None = None) -> str:
     """Reset triggered alerts."""
     alerts = _load_alerts()
     if symbol:

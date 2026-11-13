@@ -6,9 +6,8 @@ import json
 import sqlite3
 import time
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from ..config import Settings, get_settings
 
@@ -22,7 +21,7 @@ class Cache:
       - metadata: key-value store for arbitrary cached data
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.settings.cache_dir.mkdir(parents=True, exist_ok=True)
         self._init_db()
@@ -65,10 +64,10 @@ class Cache:
 
     # ── Quote cache ─────────────────────────────────────────────────────
 
-    def get_quote(self, symbol: str, date: Optional[str] = None) -> Optional[dict]:
+    def get_quote(self, symbol: str, date: str | None = None) -> dict | None:
         """Get cached quote for a symbol. Returns None if not cached or expired."""
         if date is None:
-            date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            date = datetime.now(UTC).strftime("%Y-%m-%d")
 
         with self._connect() as conn:
             row = conn.execute(
@@ -85,7 +84,7 @@ class Cache:
 
         return json.loads(row["data"])
 
-    def set_quote(self, symbol: str, date: str, data: dict, ttl_seconds: Optional[int] = None):
+    def set_quote(self, symbol: str, date: str, data: dict, ttl_seconds: int | None = None):
         """Cache a quote with optional TTL."""
         expires_at = (time.time() + ttl_seconds) if ttl_seconds else None
         with self._connect() as conn:
@@ -95,10 +94,10 @@ class Cache:
                 (symbol.upper(), date, json.dumps(data), time.time(), expires_at),
             )
 
-    def get_all_quotes(self, date: Optional[str] = None) -> dict[str, dict]:
+    def get_all_quotes(self, date: str | None = None) -> dict[str, dict]:
         """Get all cached quotes for a date."""
         if date is None:
-            date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            date = datetime.now(UTC).strftime("%Y-%m-%d")
 
         with self._connect() as conn:
             rows = conn.execute(
@@ -110,8 +109,8 @@ class Cache:
 
     # ── OHLCV cache ─────────────────────────────────────────────────────
 
-    def get_ohlcv(self, symbol: str, start_date: Optional[str] = None,
-                  end_date: Optional[str] = None) -> list[dict]:
+    def get_ohlcv(self, symbol: str, start_date: str | None = None,
+                  end_date: str | None = None) -> list[dict]:
         """Get cached OHLCV data, optionally filtered by date range."""
         query = "SELECT data FROM ohlcv WHERE symbol=? AND trade_date >= ? AND trade_date <= ?"
         params = [symbol.upper(), start_date or "0000-01-01", end_date or "9999-12-31"]
@@ -133,7 +132,7 @@ class Cache:
 
     # ── Metadata cache ──────────────────────────────────────────────────
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get cached value by key."""
         with self._connect() as conn:
             row = conn.execute(
@@ -149,7 +148,7 @@ class Cache:
 
         return json.loads(row["value"])
 
-    def set(self, key: str, value: Any, ttl_seconds: Optional[int] = None):
+    def set(self, key: str, value: Any, ttl_seconds: int | None = None):
         """Cache value by key with optional TTL."""
         expires_at = (time.time() + ttl_seconds) if ttl_seconds else None
         with self._connect() as conn:

@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 
-import rich
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from .config import get_settings
 from .analysis import backtest_sma_crossover, compute_indicators, generate_signals
 from .analysis.models import AnalysisResult
 from .chart.renderer import render_chart
+from .config import get_settings
+from .data.models import OHLCV, Quote, ScanResult
+from .data.pse_edge import PseEdgeClient
 from .dividends import dividend_add, dividend_list, dividend_remove, dividend_upcoming
-from .why import explain_signal
 from .fundamentals import company_fundamentals
 from .recap import market_recap
 from .watchlist import (
@@ -31,8 +30,7 @@ from .watchlist import (
     watchlist_list,
     watchlist_remove,
 )
-from .data.models import Company, Quote, OHLCV, ScanResult
-from .data.pse_edge import PseEdgeClient
+from .why import explain_signal
 
 app = typer.Typer(
     name="phse",
@@ -106,7 +104,8 @@ def history(symbol: str, period: str = typer.Option("1m", "--period", "-p",
 def list(force: bool = typer.Option(False, "--force", "-f",
               help="Force refresh from PSE Edge (skip cache)")):
     """List all listed companies on the PSE."""
-    client = PseEdgeClient(settings)
+    from .data.unified import UnifiedPseClient
+    client = UnifiedPseClient(settings)
 
     try:
         companies = client.get_companies()
@@ -117,6 +116,11 @@ def list(force: bool = typer.Option(False, "--force", "-f",
     if not companies:
         console.print("[yellow]No companies found.[/yellow]")
         return
+
+    # Check if data is complete (has sectors) or degraded
+    has_sectors = any(c.sector for c in companies)
+    if not has_sectors:
+        console.print("[yellow]⚠ PSE Edge is unavailable — showing incomplete data (no sector/listed date).[/]")
 
     table = Table(title=f"PSE Listed Companies ({len(companies)} total)", show_lines=True)
     table.add_column("Symbol", style="cyan", width=10)
@@ -138,15 +142,15 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
          top_losers: bool = typer.Option(False, "--top-losers", "-l"),
          most_active: bool = typer.Option(False, "--most-active", "-m",
                                             help="Show most active stocks by trading value"),
-         symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
+         symbols: str | None = typer.Option(None, "--symbols", "-S",
                                                 help="Comma-separated symbols to scan (e.g. DMC,FGEN)"),
-         sector: Optional[str] = typer.Option(None, "--sector", "-s",
+         sector: str | None = typer.Option(None, "--sector", "-s",
                                                help="Filter by sector"),
-         min_volume: Optional[int] = typer.Option(None, "--min-volume",
+         min_volume: int | None = typer.Option(None, "--min-volume",
                                                    help="Minimum volume filter"),
-         price_min: Optional[float] = typer.Option(None, "--price-min",
+         price_min: float | None = typer.Option(None, "--price-min",
                                                     help="Minimum price filter"),
-         price_max: Optional[float] = typer.Option(None, "--price-max",
+         price_max: float | None = typer.Option(None, "--price-max",
                                                     help="Maximum price filter"),
          limit: int = typer.Option(50, "--limit", "-n",
                                     help="Maximum number of results"),
@@ -434,19 +438,21 @@ def alert(
             console.print("[bold red]Error: --symbol is required for check.[/bold red]")
             raise typer.Exit(code=1)
         # Fetch current price
-        from phse.data.pse_edge import PseEdgeClient
         from phse.config import get_settings
+        from phse.data.pse_edge import PseEdgeClient
         client = PseEdgeClient(get_settings())
         quote = client.get_quote(0, symbol)
         if quote is None or quote.last_price is None:
             console.print(f"[bold red]Could not fetch quote for '{symbol}'.[/bold red]")
             raise typer.Exit(code=1)
-        triggered = alert_check(quote.last_price, symbol)
+        triggered, triggering_price = alert_check(quote.last_price, symbol)
         if triggered:
             console.print(f"[bold red]⚠ ALERT TRIGGERED for {symbol}![/bold red]")
             for a in triggered:
                 direction = "above" if a.above else "below"
-                console.print(f"  Price {a.threshold:.2f} crossed {direction} {a.threshold:.2f}")
+                ts = datetime.fromisoformat(a.triggered_at).strftime("%Y-%m-%d %H:%M:%S UTC") if a.triggered_at else ""
+                ts_str = f" ({ts})" if ts else ""
+                console.print(f"  Price {triggering_price:.2f} crossed {direction} {a.threshold:.2f}{ts_str}")
         else:
             console.print(f"[dim]No alerts triggered for {symbol} (current: {quote.last_price:.2f})[/dim]")
     elif command == "reset":
@@ -556,7 +562,7 @@ def signals(top_gainers: bool = typer.Option(False, "--buy", "-b",
               help="Show stocks with buy signals"),
             top_losers: bool = typer.Option(False, "--sell", "-s",
               help="Show stocks with sell signals"),
-            symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
+            symbols: str | None = typer.Option(None, "--symbols", "-S",
               help="Comma-separated symbols to analyze"),
             period: str = typer.Option("1m", "--period", "-p",
               help="Time period: 1m, 3m, 6m, 1y"),
@@ -636,7 +642,7 @@ def about():
         Text("Philippine Securities Engine (phse) CLI\n"
              "A modular tool for scanning, analyzing, and charting PSE stocks.\n\n"
              "Data source: PSE Edge (edge.pse.com.ph)\n"
-             "Version: 0.1.0",
+             "Version: 0.1.1",
              style="cyan"),
         title="[bold]phse cli[/bold]",
         border_style="blue",
@@ -739,11 +745,10 @@ def _print_scan_results(results: list[ScanResult], title: str):
 
 def _print_analysis(analysis: AnalysisResult, current_price: float, symbol: str):
     """Print comprehensive analysis output."""
-    from .analysis.models import AnalysisResult
 
     # Header
     color = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(analysis.composite_signal, "white")
-    arrow = {"BUY": "▲", "SELL": "▼", "HOLD": "—"}.get(analysis.composite_signal, "—")
+    {"BUY": "▲", "SELL": "▼", "HOLD": "—"}.get(analysis.composite_signal, "—")
 
     console.print()
     console.print(Panel(

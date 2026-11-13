@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from phse.config import get_settings
 from phse.data.pse_edge import PseEdgeClient
@@ -20,8 +20,8 @@ from phse.data.pse_edge import PseEdgeClient
 def bootstrap(symbols: list[str], period: str = "1y", all_companies: bool = False):
     """Download historical data for the given symbols."""
     client = PseEdgeClient(get_settings())
-    end_date = datetime.now(timezone.utc).date()
-    start_date = end_date - timedelta(days=365)  # 1 year
+    end_date = datetime.now(UTC).date()
+    end_date - timedelta(days=365)  # 1 year
 
     # Resolve symbols
     if all_companies:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from rich.console import Console
 from rich.panel import Panel
@@ -29,7 +29,7 @@ def market_recap() -> None:
     # Print recap
     console.print()
     console.print(Panel(
-        f"[bold]Market Recap — {datetime.now(timezone.utc).strftime('%Y-%m-%d')}[/bold]\n"
+        f"[bold]Market Recap — {datetime.now(UTC).strftime('%Y-%m-%d')}[/bold]\n"
         f"[dim]Based on {total_count} companies from frames.pse.com.ph | "
         f"Total Volume: {summary['total_volume']:,} | "
         f"Total Value: ₱{summary['total_value']:,.0f}[/dim]",
@@ -61,12 +61,12 @@ def market_recap() -> None:
     table.add_column("Symbol", style="cyan")
     table.add_column("Price", justify="right")
     table.add_column("% Change", justify="right")
-    for l in losers:
-        c = _change_color(l["percent_change"])
+    for loser in losers:
+        c = _change_color(loser["percent_change"])
         table.add_row(
-            l["symbol"],
-            f"{l['price']:.2f}" if l["price"] else "—",
-            f"[{c}]{l['percent_change']:+.2f}%[/]" if l["percent_change"] else "—",
+            loser["symbol"],
+            f"{loser['price']:.2f}" if loser["price"] else "—",
+            f"[{c}]{loser['percent_change']:+.2f}%[/]" if loser["percent_change"] else "—",
         )
     console.print(table)
 
