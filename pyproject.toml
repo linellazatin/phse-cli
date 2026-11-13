@@ -47,3 +47,32 @@ asyncio_mode = "auto"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "UP", "PLR", "SIM", "S", "BLE", "I", "RUF", "EXE", "TRY"]
+ignore = [
+    "BLE001",    # blind exception in CLI/cache code is intentional
+    "S110",      # try-except-pass for cache fallback
+    "S112",      # try-except-continue for scan loops
+    "PLR0912",   # too many branches (common in parsing/CLI code)
+    "PLR0915",   # too many statements (common in CLI/analysis code)
+    "PLR0913",   # too many arguments (common in CLI/Typer functions)
+    "PLR0917",   # too many positional args (common in CLI/Typer functions)
+    "PLR2004",   # magic values (expected in financial domain)
+    "E501",      # line length (already handled by formatter)
+    "W293",      # blank line whitespace
+    "SIM108",    # ternary style preference
+    "SIM103",    # return style preference
+    "RUF021",    # and/or precedence (readable as-is)
+    "RUF003",    # ambiguous character in comment
+    "TRY003",    # long message in raise (acceptable for custom exceptions)
+    "TRY002",    # custom exception (not critical for this project)
+    "TRY300",    # else block style
+    "I001",      # import sort (ruff doesn't sort like isort)
+    "SIM105",    # contextlib.suppress style preference
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/bootstrap_data.py" = ["EXE001"]
+"tests/**" = ["S101"]
+"phse/chart/renderer.py" = ["E402"]  # lazy import for optional dependency

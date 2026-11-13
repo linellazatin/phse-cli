@@ -8,6 +8,7 @@
   - Previously: `Price 7.00 crossed below 7.00`. Now: `Price 6.64 crossed below 7.00 (2026-01-15 14:30:00 UTC)`.
 - **pyproject**: fixed chart extra pypi name → `lightweight-charts` (was `lightweight-charts-python`)
 - **README**: Fixed architecture diagram (`phse/watchlist/` is a directory, not a file), added missing `phse/data/exceptions.py`, added `--most-active`/`-m` and `--min-volume` scan flags, added `--period` to signals command, fixed chart toggle syntax
+- **ruff checks**: fixed source files per ruff check results
 
 ### Added
 
