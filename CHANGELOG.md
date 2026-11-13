@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.1] - 2026-01-15
+
+### Fixed
+
+- **`phse alert check`**: Alert output now shows the actual triggering price (not the threshold repeated twice) and includes the UTC datetime when the alert was triggered. 
+  - Previously: `Price 7.00 crossed below 7.00`. Now: `Price 6.64 crossed below 7.00 (2026-01-15 14:30:00 UTC)`.
+- **pyproject**: fixed chart extra pypi name → `lightweight-charts` (was `lightweight-charts-python`)
+- **README**: Fixed architecture diagram (`phse/watchlist/` is a directory, not a file), added missing `phse/data/exceptions.py`, added `--most-active`/`-m` and `--min-volume` scan flags, added `--period` to signals command, fixed chart toggle syntax
+
+### Added
+
+- **PSE Edge health check**: Added `HealthCheckResult` dataclass and `health_check()` to `PseEdgeClient`. Pings `/companyDirectory/search.ax`, validates >50 entries, caches result 5 min. `UnifiedPseClient.get_companies()` uses health check: 
+  - when pse_edge healthy, merges frames + pse_edge (original)
+  - when down, returns frames-only with empty sector
+  - `phse list` detects degraded data and shows warning
+- Updated `alert_check()` to return `(alerts, triggering_price)` tuple and fixed alert output to show actual price + datetime.
+
 ## [0.1.0] - 2026-11-12
 
 ### Added

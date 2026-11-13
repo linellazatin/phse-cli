@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phse-cli"
-version = "0.1.0"
+version = "0.1.1"
 description = "Philippine Securities Engine (phse) CLI — PH stock analysis, signals, charts, and backtesting"
 readme = "README.md"
 license = "MIT"
@@ -30,7 +30,7 @@ dev = [
     "ruff>=0.4",
 ]
 chart = [
-    "lightweight-charts-python>=1.0",
+    "lightweight-charts>=1.0",
 ]
 
 [project.scripts]

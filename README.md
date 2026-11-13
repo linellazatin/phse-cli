@@ -33,7 +33,7 @@ pip install phse-cli           # CLI only
 ### From Source (development)
 
 ```bash
-git clone https://github.com/YOUR-USER/phse.git
+git clone https://github.com/linellazatin/phse-cli.git
 cd phse
 pip install -e ".[chart]"   # with chart support
 # or
@@ -114,14 +114,14 @@ phse chart FGEN --no-indicators
 | Command | Description |
 |---------|-------------|
 | `phse analyze <SYMBOL> [-p 1y]` | Full technical analysis with indicators, signals, support/resistance |
-| `phse signals [-b/--buy] [-s/--sell] [-S symbols]` | Market-wide signal scan with BUY/SELL/HOLD filtering |
+| `phse signals [-b/--buy] [-s/--sell] [-S symbols] [-p 1m\|3m\|6m\|1y]` | Market-wide signal scan with BUY/SELL/HOLD filtering |
 | `phse backtest <SYMBOL> [-p 1y] [-s 7] [-l 20]` | SMA crossover backtest with P&L stats |
 
 ### Charts
 
 | Command | Description |
 |---------|-------------|
-| `phse chart <SYMBOL> [-p 1y] [--indicators] [--no-block]` | Interactive candlestick chart with volume + indicator overlays |
+| `phse chart <SYMBOL> [-p 1y] [--indicators/--no-indicators] [--block/--no-block]` | Interactive candlestick chart with volume + indicator overlays |
 
 ### Watchlist & Alerts
 
@@ -156,10 +156,12 @@ phse chart FGEN --no-indicators
 ```bash
 phse scan --top-gainers          # Top 10 gainers
 phse scan --top-losers           # Top 10 losers
+phse scan --most-active          # Top 10 by trading value
 phse scan --symbols DMC,FGEN     # Target specific stocks (bypasses full scan)
 phse scan -n 20                  # Limit results
-phse scan --sort volume          # Sort by field
+phse scan --sort volume          # Sort by: symbol, change, volume, price
 phse scan --price-min 10 --price-max 100  # Price range
+phse scan --min-volume 1000      # Minimum volume filter
 ```
 
 ## Technical Analysis
@@ -206,6 +208,7 @@ phse-cli/
 │   │   ├── frames_pse.py   # frames.pse.com.ph JSON parser (backup source)
 │   │   ├── unified.py      # Auto-merges frames_pse + pse_edge
 │   │   ├── cache.py        # SQLite caching layer
+│   │   ├── exceptions.py   # Custom exceptions
 │   │   └── models.py       # Company, Quote, OHLCV models
 │   ├── scan/
 │   │   └── screener.py     # Stock screener with filters
@@ -217,6 +220,7 @@ phse-cli/
 │   ├── chart/
 │   │   └── renderer.py     # lightweight-charts-python renderer
 │   ├── watchlist/
+│   │   ├── __init__.py       # Watchlist package (exports)
 │   │   ├── watchlist.py    # Watchlist CRUD
 │   │   └── alerts.py       # Price alert management
 │   ├── recap/
@@ -271,7 +275,7 @@ SQLite cache at `~/.phse-cli/cache.db`:
 - **HTML Parsing**: lxml
 - **Data Models**: Pydantic
 - **Analysis**: pandas + ta library
-- **Charts**: lightweight-charts-python (TradingView engine)
+- **Charts**: lightweight-charts (TradingView engine)
 - **Cache**: SQLite (zero-config)
 - **Testing**: pytest
 
@@ -282,8 +286,6 @@ pytest tests/ -v          # All tests
 pytest tests/test_analysis.py -v   # Analysis module
 pytest tests/test_chart.py -v      # Chart module
 ```
-
-**44 tests passing.** Test symbols: GCASH, DMC, FGEN.
 
 ## CLI Reference
 
@@ -298,7 +300,18 @@ phse dividend --help                 # Dividend help
 
 - **Chart semaphore leak**: `phse chart` may leave leaked multiprocessing semaphores on exit. This is a known issue with `lightweight-charts-python` and doesn't affect functionality.
 - **P/E, P/BV, Book Value**: These fields show "N/A" because PSE Edge doesn't provide them in the quote page. They would need to be scraped from a fundamentals page or fetched from an alternative source.
-- **Sector display**: Sector information is now populated from the unified client, but some stocks may show empty sector if the PSE Edge company list doesn't have sector data for that symbol.
+- **Sector display**: Sector information is populated from PSE Edge. If PSE Edge is down, `phse list` falls back to frames.pse.com.ph data with empty sector/listed date columns and shows a warning.
+- **PSE Edge availability**: `phse list` now includes a health check for PSE Edge. When PSE Edge is down, the command degrades gracefully using frames.pse.com.ph data (symbol + name only, no sector). The health check is cached for 5 minutes.
+
+## Development
+
+This small tool was built alongside a fully local [Qwen3.6 model](https://huggingface.co/llmfan46/Qwen3.6-35B-A3B-uncensored-heretic-Native-MTP-Preserved-GGUF), served under the following specifications:
+- Inference server: [llama.cpp](https://github.com/ggml-org/llama.cpp) (llama-server)
+- Consumer-grade, mid-tier PC
+  - OS: Fedora 45 Workstation Edition (through isolate multi-user.target)
+  - GPU: AMD Ryzen 7 7700X
+  - GPU: AMD Radeon RX 7700XT 12GiB
+  - RAM: 32GiB
 
 ## License
 
