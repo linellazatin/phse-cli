@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 
-import rich
 import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from .config import get_settings
 from .analysis import backtest_sma_crossover, compute_indicators, generate_signals
 from .analysis.models import AnalysisResult
 from .chart.renderer import render_chart
+from .config import get_settings
+from .data.models import OHLCV, Quote, ScanResult
+from .data.pse_edge import PseEdgeClient
 from .dividends import dividend_add, dividend_list, dividend_remove, dividend_upcoming
-from .why import explain_signal
 from .fundamentals import company_fundamentals
 from .recap import market_recap
 from .watchlist import (
@@ -31,8 +30,7 @@ from .watchlist import (
     watchlist_list,
     watchlist_remove,
 )
-from .data.models import Company, Quote, OHLCV, ScanResult
-from .data.pse_edge import PseEdgeClient
+from .why import explain_signal
 
 app = typer.Typer(
     name="phse",
@@ -144,15 +142,15 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
          top_losers: bool = typer.Option(False, "--top-losers", "-l"),
          most_active: bool = typer.Option(False, "--most-active", "-m",
                                             help="Show most active stocks by trading value"),
-         symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
+         symbols: str | None = typer.Option(None, "--symbols", "-S",
                                                 help="Comma-separated symbols to scan (e.g. DMC,FGEN)"),
-         sector: Optional[str] = typer.Option(None, "--sector", "-s",
+         sector: str | None = typer.Option(None, "--sector", "-s",
                                                help="Filter by sector"),
-         min_volume: Optional[int] = typer.Option(None, "--min-volume",
+         min_volume: int | None = typer.Option(None, "--min-volume",
                                                    help="Minimum volume filter"),
-         price_min: Optional[float] = typer.Option(None, "--price-min",
+         price_min: float | None = typer.Option(None, "--price-min",
                                                     help="Minimum price filter"),
-         price_max: Optional[float] = typer.Option(None, "--price-max",
+         price_max: float | None = typer.Option(None, "--price-max",
                                                     help="Maximum price filter"),
          limit: int = typer.Option(50, "--limit", "-n",
                                     help="Maximum number of results"),
@@ -440,8 +438,8 @@ def alert(
             console.print("[bold red]Error: --symbol is required for check.[/bold red]")
             raise typer.Exit(code=1)
         # Fetch current price
-        from phse.data.pse_edge import PseEdgeClient
         from phse.config import get_settings
+        from phse.data.pse_edge import PseEdgeClient
         client = PseEdgeClient(get_settings())
         quote = client.get_quote(0, symbol)
         if quote is None or quote.last_price is None:
@@ -564,7 +562,7 @@ def signals(top_gainers: bool = typer.Option(False, "--buy", "-b",
               help="Show stocks with buy signals"),
             top_losers: bool = typer.Option(False, "--sell", "-s",
               help="Show stocks with sell signals"),
-            symbols: Optional[str] = typer.Option(None, "--symbols", "-S",
+            symbols: str | None = typer.Option(None, "--symbols", "-S",
               help="Comma-separated symbols to analyze"),
             period: str = typer.Option("1m", "--period", "-p",
               help="Time period: 1m, 3m, 6m, 1y"),
@@ -747,11 +745,10 @@ def _print_scan_results(results: list[ScanResult], title: str):
 
 def _print_analysis(analysis: AnalysisResult, current_price: float, symbol: str):
     """Print comprehensive analysis output."""
-    from .analysis.models import AnalysisResult
 
     # Header
     color = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(analysis.composite_signal, "white")
-    arrow = {"BUY": "▲", "SELL": "▼", "HOLD": "—"}.get(analysis.composite_signal, "—")
+    {"BUY": "▲", "SELL": "▼", "HOLD": "—"}.get(analysis.composite_signal, "—")
 
     console.print()
     console.print(Panel(

@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from ..data.models import OHLCV
-from .indicators import compute_indicators
-from .signals import generate_signals
 
 
 @dataclass
@@ -89,7 +86,6 @@ def backtest_sma_crossover(
         sells += 1
 
     # Calculate returns
-    trades = []
     for entry_price in entries:
         # Find the next sell price (simplified: use sequential data)
         pass
@@ -117,11 +113,9 @@ def backtest_sma_crossover(
     peak = closes[long_period]
     max_dd = 0.0
     for i in range(long_period, n):
-        if closes[i] > peak:
-            peak = closes[i]
+        peak = max(peak, closes[i])
         dd = (peak - closes[i]) / peak * 100
-        if dd > max_dd:
-            max_dd = dd
+        max_dd = max(max_dd, dd)
 
     # Sharpe ratio (simplified annualized)
     if trade_count > 1:

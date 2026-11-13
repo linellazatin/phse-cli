@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Optional
-
 import pandas as pd
+
 
 # Patch pandas 3.x compatibility bug in lightweight-charts
 # Pandas 3.x stores datetime precision in microseconds instead of nanoseconds,
 # breaking the timestamp conversion that lightweight-charts expects.
 def _apply_lc_patch():
-    from lightweight_charts.abstract import AbstractChart, SeriesCommon, Window
+    from lightweight_charts.abstract import AbstractChart, SeriesCommon
 
     def _df_datetime_format_fixed(self, df, exclude_lowercase=None):
         df = df.copy()
-        orig_cols = list(df.columns)
+        list(df.columns)
         df.columns = self._format_labels(df, df.columns, df.index, exclude_lowercase)
         if not pd.api.types.is_datetime64_any_dtype(df['time']):
             df['time'] = pd.to_datetime(df['time'])
@@ -38,14 +36,13 @@ _apply_lc_patch()
 
 from lightweight_charts import Chart
 
-from ..analysis import compute_indicators
 from ..data.models import OHLCV
 
 
 def render_chart(
     symbol: str,
     ohlcv: list[OHLCV],
-    indicators: Optional[object] = None,
+    indicators: object | None = None,
     title: str = "",
 ) -> Chart:
     """Render an interactive candlestick chart with optional indicator overlays.

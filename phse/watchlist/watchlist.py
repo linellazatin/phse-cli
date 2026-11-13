@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional
 
 from ..config import get_settings
 
@@ -26,7 +25,7 @@ def _load_watchlist() -> list[str]:
         with open(path) as f:
             data = json.load(f)
         return list(data) if isinstance(data, list) else []
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return []
 
 

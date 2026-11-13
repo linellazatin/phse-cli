@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from ..config import get_settings
 
@@ -39,7 +38,7 @@ def _load_dividends() -> list[Dividend]:
         with open(path) as f:
             data = json.load(f)
         return [Dividend(**d) for d in data] if isinstance(data, list) else []
-    except (json.JSONDecodeError, IOError, TypeError):
+    except (OSError, json.JSONDecodeError, TypeError):
         return []
 
 
@@ -78,7 +77,7 @@ def dividend_add(
     return f"Added dividend: {symbol} ex-{ex_date} P{amount:.4f}/share"
 
 
-def dividend_remove(symbol: str, ex_date: Optional[str] = None) -> str:
+def dividend_remove(symbol: str, ex_date: str | None = None) -> str:
     """Remove a dividend record."""
     dividends = _load_dividends()
     if ex_date:
@@ -91,7 +90,7 @@ def dividend_remove(symbol: str, ex_date: Optional[str] = None) -> str:
     return f"Removed all dividends for '{symbol}'"
 
 
-def dividend_list(symbol: Optional[str] = None) -> list[dict]:
+def dividend_list(symbol: str | None = None) -> list[dict]:
     """Return dividend records, optionally filtered by symbol."""
     dividends = _load_dividends()
     if symbol:
@@ -104,6 +103,6 @@ def dividend_list(symbol: Optional[str] = None) -> list[dict]:
 
 def dividend_upcoming() -> list[dict]:
     """Return upcoming dividends (ex_date >= today)."""
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     dividends = dividend_list()
     return [d for d in dividends if d["ex_date"] >= today]

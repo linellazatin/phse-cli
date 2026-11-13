@@ -6,7 +6,6 @@ from rich.console import Console
 from rich.panel import Panel
 
 from ..analysis import compute_indicators, generate_signals
-
 from ..config import get_settings
 from ..data.pse_edge import PseEdgeClient
 
@@ -90,7 +89,7 @@ def explain_signal(symbol: str, period: str = "1y") -> None:
         elif last_close < indicators.bb_lower:
             reasons.append(f"Price below BB lower ({indicators.bb_lower:.2f}) — oversold")
         else:
-            reasons.append(f"Price within Bollinger Bands")
+            reasons.append("Price within Bollinger Bands")
     
     # MACD signals
     if indicators.macd_hist is not None:

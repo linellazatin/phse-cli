@@ -6,12 +6,10 @@ Tries frames_pse first (lightweight, fast), falls back to pse_edge
 
 from __future__ import annotations
 
-from typing import Optional
-
 from ..config import Settings, get_settings
-from .models import Company, OHLCV, Quote
-from .pse_edge import PseEdgeClient
 from .frames_pse import FramesPseClient
+from .models import OHLCV, Company, Quote
+from .pse_edge import PseEdgeClient
 
 
 class UnifiedPseClient:
@@ -23,7 +21,7 @@ class UnifiedPseClient:
     - Company list: frames_pse first (388 entries), pse_edge fallback (284, with sector)
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.frames = FramesPseClient(settings)
         self.edge = PseEdgeClient(settings)
@@ -55,7 +53,7 @@ class UnifiedPseClient:
             # pse_edge down — return frames-only with empty sector
             return self.frames.get_companies()
 
-    def resolve_symbol(self, symbol: str) -> Optional[Company]:
+    def resolve_symbol(self, symbol: str) -> Company | None:
         """Resolve symbol from frames_pse, falling back to pse_edge."""
         # Try frames first (includes more symbols, including indices)
         stock = self.frames.resolve_symbol(symbol)

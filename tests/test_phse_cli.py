@@ -1,14 +1,14 @@
 """Tests for Philippine Securities Engine (phse) CLI core functionality."""
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from bs4 import BeautifulSoup
 
 from phse.config import get_settings
-from phse.data.models import Company, Quote, OHLCV
-from phse.data.pse_edge import PseEdgeClient
 from phse.data.frames_pse import FramesPseClient
+from phse.data.models import OHLCV, Company, Quote
+from phse.data.pse_edge import PseEdgeClient
 from phse.data.unified import UnifiedPseClient
 
 
@@ -82,7 +82,7 @@ class TestPseEdgeClient:
 
     def test_get_price_history(self, client):
         """Test price history fetching for DMC."""
-        end_date = datetime.now(timezone.utc).date()
+        end_date = datetime.now(UTC).date()
         start_date = end_date - timedelta(days=30)
         history = client.get_price_history(188, "DMC")
         assert len(history) > 0

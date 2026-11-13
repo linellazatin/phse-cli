@@ -3,28 +3,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
 class IndicatorResult:
     """Container for computed technical indicators."""
     symbol: str
-    sma_7: Optional[float] = None
-    sma_20: Optional[float] = None
-    sma_50: Optional[float] = None
-    sma_200: Optional[float] = None
-    ema_12: Optional[float] = None
-    ema_26: Optional[float] = None
-    rsi_14: Optional[float] = None
-    macd_line: Optional[float] = None
-    macd_signal: Optional[float] = None
-    macd_hist: Optional[float] = None
-    bb_upper: Optional[float] = None
-    bb_middle: Optional[float] = None
-    bb_lower: Optional[float] = None
-    atr_14: Optional[float] = None
-    vwap: Optional[float] = None
+    sma_7: float | None = None
+    sma_20: float | None = None
+    sma_50: float | None = None
+    sma_200: float | None = None
+    ema_12: float | None = None
+    ema_26: float | None = None
+    rsi_14: float | None = None
+    macd_line: float | None = None
+    macd_signal: float | None = None
+    macd_hist: float | None = None
+    bb_upper: float | None = None
+    bb_middle: float | None = None
+    bb_lower: float | None = None
+    atr_14: float | None = None
+    vwap: float | None = None
 
 
 @dataclass
@@ -45,5 +44,5 @@ class AnalysisResult:
     composite_signal: str = "NEUTRAL"  # BUY, HOLD, SELL
     composite_confidence: float = 0.0  # 0.0 to 1.0
     composite_score: float = 0.0  # -1.0 (strong sell) to +1.0 (strong buy)
-    support_level: Optional[float] = None
-    resistance_level: Optional[float] = None
+    support_level: float | None = None
+    resistance_level: float | None = None

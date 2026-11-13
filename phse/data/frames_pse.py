@@ -9,18 +9,16 @@ Legal: PSE-owned, 15-min delayed, personal-use only per their terms.
 from __future__ import annotations
 
 import json
-import re
 import time
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import datetime
 from urllib.parse import urljoin
 
 import httpx
 from bs4 import BeautifulSoup
 
 from ..config import Settings, get_settings
-from .models import Company, OHLCV, Quote
 from .exceptions import PseHttpError, PseScrapeError
+from .models import Company, Quote
 
 
 class FramesPseClient:
@@ -30,7 +28,7 @@ class FramesPseClient:
     current-day quote data. Much simpler than PSE Edge HTML parsing.
     """
 
-    def __init__(self, settings: Optional[Settings] = None):
+    def __init__(self, settings: Settings | None = None):
         self.settings = settings or get_settings()
         self.base_url = "https://frames.pse.com.ph"
         self._client = httpx.Client(
@@ -85,10 +83,9 @@ class FramesPseClient:
 
             # Only include actual stocks (skip indices with 0 volume/value)
             try:
-                volume = int(s.get("Volume", 0))
+                int(s.get("Volume", 0))
                 price = float(s.get("Price", 0)) if s.get("Price", "0") != "0" else 0
             except (ValueError, TypeError):
-                volume = 0
                 price = 0
 
             # Skip pure indices (no meaningful price)
@@ -199,7 +196,7 @@ class FramesPseClient:
             "total_value": total_value,
         }
 
-    def resolve_symbol(self, symbol: str) -> Optional[dict]:
+    def resolve_symbol(self, symbol: str) -> dict | None:
         """Resolve a stock symbol to its frames data dict (or None)."""
         stocks = self._get_raw_stocks()
         symbol_upper = symbol.upper()
@@ -279,7 +276,7 @@ class FramesPseClient:
     # ── Helpers ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def _parse_tradedate(raw: str) -> Optional[datetime]:
+    def _parse_tradedate(raw: str) -> datetime | None:
         """Parse TradeDate from frames JSON.
 
         Format varies: '0001-01-01T00:00:00+07:37' (broken) or '2026-11-12T...'
@@ -293,7 +290,7 @@ class FramesPseClient:
             return None
 
     @staticmethod
-    def _is_market_open(as_of: Optional[datetime]) -> bool:
+    def _is_market_open(as_of: datetime | None) -> bool:
         """Check if the quote is from an active trading session."""
         if not as_of:
             return False

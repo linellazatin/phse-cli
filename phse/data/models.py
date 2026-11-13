@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
-
 
 # ── Company ──────────────────────────────────────────────────────────────
 
@@ -18,7 +16,7 @@ class Company(BaseModel):
     sector: str = ""
     subsector: str = ""
     cmpy_id: int = 0
-    listing_date: Optional[date] = None
+    listing_date: date | None = None
 
 
 # ── Quote ────────────────────────────────────────────────────────────────
@@ -30,35 +28,35 @@ class Quote(BaseModel):
     company_name: str
 
     # Price data
-    last_price: Optional[float] = None
-    open: Optional[float] = None
-    high: Optional[float] = None
-    low: Optional[float] = None
-    previous_close: Optional[float] = None
+    last_price: float | None = None
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    previous_close: float | None = None
 
     # Derived
-    change: Optional[float] = None
-    percent_change: Optional[float] = None
+    change: float | None = None
+    percent_change: float | None = None
 
     # Volume & value
-    volume: Optional[int] = None
-    value: Optional[float] = None  # in PHP
-    average_price: Optional[float] = None
+    volume: int | None = None
+    value: float | None = None  # in PHP
+    average_price: float | None = None
 
     # Market data
-    market_cap: Optional[float] = None
-    pe_ratio: Optional[float] = None
-    pb_ratio: Optional[float] = None
-    book_value: Optional[float] = None
+    market_cap: float | None = None
+    pe_ratio: float | None = None
+    pb_ratio: float | None = None
+    book_value: float | None = None
     sector: str = ""
     subsector: str = ""
 
     # Range
-    week_52_high: Optional[float] = None
-    week_52_low: Optional[float] = None
+    week_52_high: float | None = None
+    week_52_low: float | None = None
 
     # Metadata
-    as_of: Optional[datetime] = None
+    as_of: datetime | None = None
     stale: bool = False
 
 
@@ -93,21 +91,21 @@ class AnalysisResult(BaseModel):
     company_name: str
 
     # Current quote
-    last_price: Optional[float] = None
+    last_price: float | None = None
 
     # Indicators
-    sma_7: Optional[float] = None
-    sma_20: Optional[float] = None
-    sma_50: Optional[float] = None
-    sma_200: Optional[float] = None
-    rsi_14: Optional[float] = None
-    macd_line: Optional[float] = None
-    macd_signal: Optional[float] = None
-    macd_histogram: Optional[float] = None
-    bollinger_upper: Optional[float] = None
-    bollinger_middle: Optional[float] = None
-    bollinger_lower: Optional[float] = None
-    atr_14: Optional[float] = None
+    sma_7: float | None = None
+    sma_20: float | None = None
+    sma_50: float | None = None
+    sma_200: float | None = None
+    rsi_14: float | None = None
+    macd_line: float | None = None
+    macd_signal: float | None = None
+    macd_histogram: float | None = None
+    bollinger_upper: float | None = None
+    bollinger_middle: float | None = None
+    bollinger_lower: float | None = None
+    atr_14: float | None = None
 
     # Signals
     signals: list[TechnicalSignal] = []
@@ -125,15 +123,15 @@ class ScanResult(BaseModel):
 
     symbol: str
     company_name: str
-    last_price: Optional[float] = None
-    change: Optional[float] = None
-    percent_change: Optional[float] = None
-    volume: Optional[int] = None
-    value: Optional[float] = None  # trading value = volume × price
-    market_cap: Optional[float] = None
+    last_price: float | None = None
+    change: float | None = None
+    percent_change: float | None = None
+    volume: int | None = None
+    value: float | None = None  # trading value = volume × price
+    market_cap: float | None = None
     sector: str = ""
     subsector: str = ""
-    pe_ratio: Optional[float] = None
+    pe_ratio: float | None = None
 
 
 # ── Watchlist ────────────────────────────────────────────────────────────
@@ -153,7 +151,7 @@ class Alert(BaseModel):
     alert_type: str  # "above" or "below"
     price: float
     triggered: bool = False
-    triggered_at: Optional[datetime] = None
+    triggered_at: datetime | None = None
 
 
 # ── Market Summary ───────────────────────────────────────────────────────
@@ -161,11 +159,11 @@ class Alert(BaseModel):
 class MarketSummary(BaseModel):
     """PSE market summary."""
 
-    pse_index: Optional[float] = None
-    psei_index: Optional[float] = None
-    advancers: Optional[int] = None
-    decliners: Optional[int] = None
-    unchanged: Optional[int] = None
-    total_volume: Optional[int] = None
-    total_value: Optional[float] = None
-    as_of: Optional[datetime] = None
+    pse_index: float | None = None
+    psei_index: float | None = None
+    advancers: int | None = None
+    decliners: int | None = None
+    unchanged: int | None = None
+    total_volume: int | None = None
+    total_value: float | None = None
+    as_of: datetime | None = None
