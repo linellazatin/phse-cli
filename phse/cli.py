@@ -106,7 +106,8 @@ def history(symbol: str, period: str = typer.Option("1m", "--period", "-p",
 def list(force: bool = typer.Option(False, "--force", "-f",
               help="Force refresh from PSE Edge (skip cache)")):
     """List all listed companies on the PSE."""
-    client = PseEdgeClient(settings)
+    from .data.unified import UnifiedPseClient
+    client = UnifiedPseClient(settings)
 
     try:
         companies = client.get_companies()
@@ -117,6 +118,11 @@ def list(force: bool = typer.Option(False, "--force", "-f",
     if not companies:
         console.print("[yellow]No companies found.[/yellow]")
         return
+
+    # Check if data is complete (has sectors) or degraded
+    has_sectors = any(c.sector for c in companies)
+    if not has_sectors:
+        console.print("[yellow]⚠ PSE Edge is unavailable — showing incomplete data (no sector/listed date).[/]")
 
     table = Table(title=f"PSE Listed Companies ({len(companies)} total)", show_lines=True)
     table.add_column("Symbol", style="cyan", width=10)
@@ -441,12 +447,14 @@ def alert(
         if quote is None or quote.last_price is None:
             console.print(f"[bold red]Could not fetch quote for '{symbol}'.[/bold red]")
             raise typer.Exit(code=1)
-        triggered = alert_check(quote.last_price, symbol)
+        triggered, triggering_price = alert_check(quote.last_price, symbol)
         if triggered:
             console.print(f"[bold red]⚠ ALERT TRIGGERED for {symbol}![/bold red]")
             for a in triggered:
                 direction = "above" if a.above else "below"
-                console.print(f"  Price {a.threshold:.2f} crossed {direction} {a.threshold:.2f}")
+                ts = datetime.fromisoformat(a.triggered_at).strftime("%Y-%m-%d %H:%M:%S UTC") if a.triggered_at else ""
+                ts_str = f" ({ts})" if ts else ""
+                console.print(f"  Price {triggering_price:.2f} crossed {direction} {a.threshold:.2f}{ts_str}")
         else:
             console.print(f"[dim]No alerts triggered for {symbol} (current: {quote.last_price:.2f})[/dim]")
     elif command == "reset":
@@ -636,7 +644,7 @@ def about():
         Text("Philippine Securities Engine (phse) CLI\n"
              "A modular tool for scanning, analyzing, and charting PSE stocks.\n\n"
              "Data source: PSE Edge (edge.pse.com.ph)\n"
-             "Version: 0.1.0",
+             "Version: 0.1.1",
              style="cyan"),
         title="[bold]phse cli[/bold]",
         border_style="blue",

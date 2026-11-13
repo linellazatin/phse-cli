@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urljoin
@@ -17,6 +18,18 @@ from .models import Company, OHLCV, Quote
 from .exceptions import PseHttpError, PseScrapeError
 
 
+@dataclass
+class HealthCheckResult:
+    """Result of a PSE Edge health check."""
+    healthy: bool
+    entry_count: int = 0
+    error: Optional[str] = None
+
+
+# Module-level health check cache: {timestamp: HealthCheckResult}
+_health_cache: dict[str, tuple[HealthCheckResult, float]] = {}
+
+
 class PseEdgeClient:
     """HTTP client + parser for PSE Edge endpoints."""
 
@@ -27,7 +40,7 @@ class PseEdgeClient:
             timeout=self.settings.request_timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "phse-cli/0.1.0 (CLI; +https://github.com/phse-cli)",
+                "User-Agent": "phse-cli/0.1.1 (CLI; +https://github.com/phse-cli)",
                 "Accept": "text/html,application/xhtml+xml,application/json,*/*",
             },
         )
@@ -562,3 +575,50 @@ class PseEdgeClient:
             return float(text)
         except ValueError:
             return None
+
+    # ── Health Check ──────────────────────────────────────────────────
+
+    def health_check(self) -> HealthCheckResult:
+        """Smoke test PSE Edge availability.
+
+        Checks HTTP reachability and validates the company directory
+        returns a plausible number of entries. Result is cached for
+        5 minutes to avoid repeated pings.
+        """
+        now = time.time()
+        cache_key = "edge_health"
+        cached = _health_cache.get(cache_key)
+        if cached and (now - cached[1]) < 300:
+            return cached[0]
+
+        try:
+            resp = self._get("/companyDirectory/search.ax")
+            if resp.status_code != 200:
+                result = HealthCheckResult(healthy=False, error=f"HTTP {resp.status_code}")
+                _health_cache[cache_key] = (result, now)
+                return result
+
+            soup = BeautifulSoup(resp.text, "lxml")
+            count_span = soup.find("span", class_="count")
+            entry_count = 0
+            if count_span:
+                count_text = count_span.get_text()
+                page_match = re.search(r"\[\s*(\d+)\s*/\s*(\d+)\s*\]", count_text)
+                if page_match:
+                    entry_count = int(page_match.group(2))
+
+            # Also count table rows as a sanity check
+            table = soup.find("table", class_="list")
+            if table:
+                rows = table.find_all("tr")
+                entry_count = max(entry_count, len(rows))
+
+            result = HealthCheckResult(
+                healthy=entry_count > 50,
+                entry_count=entry_count,
+            )
+        except Exception as e:
+            result = HealthCheckResult(healthy=False, error=str(e))
+
+        _health_cache[cache_key] = (result, now)
+        return result

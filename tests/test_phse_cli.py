@@ -137,6 +137,21 @@ class TestPseEdgeClient:
         assert PseEdgeClient._parse_percent("-1.46%") == -1.46
         assert PseEdgeClient._parse_percent("N/A") is None
 
+    def test_health_check(self, client):
+        """Test PSE Edge health check."""
+        result = client.health_check()
+        assert result.healthy is True
+        assert result.entry_count > 0
+        assert result.error is None
+
+    def test_health_check_caching(self, client):
+        """Test that health check result is cached."""
+        from phse.data.pse_edge import _health_cache
+        client.health_check()
+        cached = _health_cache.get("edge_health")
+        assert cached is not None
+        assert cached[0].healthy is True
+
 
 class TestFramesPseClient:
     @pytest.fixture

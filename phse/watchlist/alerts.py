@@ -89,8 +89,11 @@ def alert_list() -> list[dict]:
     return [asdict(a) for a in alerts]
 
 
-def alert_check(current_price: float, symbol: str) -> list[PriceAlert]:
-    """Check if any alerts are triggered for a symbol at the given price."""
+def alert_check(current_price: float, symbol: str) -> tuple[list[PriceAlert], float]:
+    """Check if any alerts are triggered for a symbol at the given price.
+
+    Returns (triggered_alerts, triggering_price).
+    """
     symbol = symbol.upper()
     alerts = _load_alerts()
     triggered = []
@@ -107,7 +110,7 @@ def alert_check(current_price: float, symbol: str) -> list[PriceAlert]:
             triggered.append(alert)
     if triggered:
         _save_alerts(alerts)
-    return triggered
+    return triggered, current_price
 
 
 def alert_reset(symbol: Optional[str] = None) -> str:

@@ -33,20 +33,27 @@ class UnifiedPseClient:
     def get_companies(self) -> list[Company]:
         """Fetch companies from frames_pse, falling back to pse_edge.
         
-        Merges sector info from pse_edge company list.
+        Merges sector info from pse_edge company list. If pse_edge is
+        down, returns frames-only data with empty sector fields.
         """
-        try:
-            companies = self.frames.get_companies()
-            # Merge sector info from pse_edge
-            edge_companies = {c.symbol.upper(): c for c in self.edge.get_companies()}
-            for company in companies:
-                edge = edge_companies.get(company.symbol.upper())
-                if edge:
-                    company.sector = edge.sector
-                    company.subsector = edge.subsector
-            return companies
-        except Exception:
-            return self.edge.get_companies()
+        # Check pse_edge health first
+        health = self.edge.health_check()
+        if health.healthy:
+            try:
+                companies = self.frames.get_companies()
+                # Merge sector info from pse_edge
+                edge_companies = {c.symbol.upper(): c for c in self.edge.get_companies()}
+                for company in companies:
+                    edge = edge_companies.get(company.symbol.upper())
+                    if edge:
+                        company.sector = edge.sector
+                        company.subsector = edge.subsector
+                return companies
+            except Exception:
+                return self.edge.get_companies()
+        else:
+            # pse_edge down — return frames-only with empty sector
+            return self.frames.get_companies()
 
     def resolve_symbol(self, symbol: str) -> Optional[Company]:
         """Resolve symbol from frames_pse, falling back to pse_edge."""
