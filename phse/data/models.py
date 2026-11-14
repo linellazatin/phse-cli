@@ -73,49 +73,6 @@ class OHLCV(BaseModel):
     volume: int
 
 
-# ── Technical Indicators ─────────────────────────────────────────────────
-
-class TechnicalSignal(BaseModel):
-    """A single technical signal."""
-
-    indicator: str
-    signal: str  # "BUY", "SELL", "NEUTRAL"
-    value: float
-    description: str = ""
-
-
-class AnalysisResult(BaseModel):
-    """Complete analysis for a stock."""
-
-    symbol: str
-    company_name: str
-
-    # Current quote
-    last_price: float | None = None
-
-    # Indicators
-    sma_7: float | None = None
-    sma_20: float | None = None
-    sma_50: float | None = None
-    sma_200: float | None = None
-    rsi_14: float | None = None
-    macd_line: float | None = None
-    macd_signal: float | None = None
-    macd_histogram: float | None = None
-    bollinger_upper: float | None = None
-    bollinger_middle: float | None = None
-    bollinger_lower: float | None = None
-    atr_14: float | None = None
-
-    # Signals
-    signals: list[TechnicalSignal] = []
-
-    # Composite
-    recommendation: str = "HOLD"  # BUY, SELL, HOLD
-    confidence: float = 0.0  # 0-100
-    summary: str = ""
-
-
 # ── Scanner Results ──────────────────────────────────────────────────────
 
 class ScanResult(BaseModel):
@@ -155,6 +112,8 @@ class Alert(BaseModel):
 
 
 # ── Market Summary ───────────────────────────────────────────────────────
+# Note: AnalysisResult and TechnicalSignal were removed from this module.
+# Use phse.analysis.models.AnalysisResult and phse.analysis.models.Signal instead.
 
 class MarketSummary(BaseModel):
     """PSE market summary."""
