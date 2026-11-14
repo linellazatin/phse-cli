@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phse-cli"
-version = "0.1.1"
+version = "0.2.0"
 description = "Philippine Securities Engine (phse) CLI — PH stock analysis, signals, charts, and backtesting"
 readme = "README.md"
 license = "MIT"

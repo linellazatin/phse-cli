@@ -35,7 +35,7 @@ class FramesPseClient:
             timeout=self.settings.request_timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "phse-cli/0.1.1 (CLI; +https://github.com/phse-cli)",
+                "User-Agent": "phse-cli/0.2.0 (CLI; +https://github.com/phse-cli)",
             },
         )
 

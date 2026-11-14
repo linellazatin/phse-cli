@@ -39,7 +39,7 @@ class PseEdgeClient:
             timeout=self.settings.request_timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "phse-cli/0.1.1 (CLI; +https://github.com/phse-cli)",
+                "User-Agent": "phse-cli/0.2.0 (CLI; +https://github.com/phse-cli)",
                 "Accept": "text/html,application/xhtml+xml,application/json,*/*",
             },
         )
@@ -352,13 +352,14 @@ class PseEdgeClient:
     # ── Price History ───────────────────────────────────────────────────
 
     def get_price_history(self, cmpy_id: int, symbol: str = "",
-                          period: str = "1m") -> list[OHLCV]:
+                          period: str = "1m", force: bool = False) -> list[OHLCV]:
         """Fetch historical price data for a company.
 
         Args:
             cmpy_id: Company ID from PSE Edge
             symbol: Stock symbol
             period: Time period - 1m, 3m, 6m, 1y
+            force: If True, skip cache and fetch fresh data
 
         Returns:
             List of OHLCV data points
@@ -383,19 +384,20 @@ class PseEdgeClient:
         days = periods.get(period, 30)
         start_date = end_date - timedelta(days=max(1, days - 1))
 
-        # Try cached data first
-        try:
-            from .cache import Cache
-            cache = Cache(self.settings)
-            cached = cache.get_ohlcv(
-                symbol or str(cmpy_id),
-                start_date.strftime("%Y-%m-%d"),
-                end_date.strftime("%Y-%m-%d"),
-            )
-            if cached:
-                return [OHLCV(**bar) for bar in cached]
-        except Exception:
-            pass
+        # Try cached data first (skip if force=True)
+        if not force:
+            try:
+                from .cache import Cache
+                cache = Cache(self.settings)
+                cached = cache.get_ohlcv(
+                    symbol or str(cmpy_id),
+                    start_date.strftime("%Y-%m-%d"),
+                    end_date.strftime("%Y-%m-%d"),
+                )
+                if cached:
+                    return [OHLCV(**bar) for bar in cached]
+            except Exception:
+                pass
 
         self._throttle()
 
