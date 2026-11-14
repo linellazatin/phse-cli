@@ -10,7 +10,7 @@ CLI-first, modular tool for monitoring, analyzing, and generating trading recomm
 - **Signal engine** — BUY/HOLD/SELL signals from SMA/EMA crossovers, RSI thresholds, Bollinger breaks, MACD histogram
 - **Backtesting** — SMA crossover strategy with total return, win rate, max drawdown, Sharpe ratio
 - **Interactive charts** — TradingView-style candlestick charts with volume + indicator overlays
-- **Market scan** — Filter by sector, price range, volume; sort by change/volume/price
+- **Market scan** — Filter by sector, price range, volume; sort by change/volume/price; fast `--bulk` mode (1 HTTP call vs 368)
 - **Watchlist** — Add/remove/list/clear symbols with JSON storage
 - **Price alerts** — Set above/below thresholds, check triggers, reset alerts
 - **Fundamentals** — P/E, P/BV, market cap, 52-week range, book value
@@ -163,6 +163,14 @@ phse scan --sort volume          # Sort by: symbol, change, volume, price
 phse scan --price-min 10 --price-max 100  # Price range
 phse scan --min-volume 1000      # Minimum volume filter
 ```
+### Fast Bulk Scan
+
+```bash
+phse scan --bulk                 # All 367 stocks in ~1-2s (was 120s+)
+phse scan --bulk --top-gainers   # Fast top gainers
+phse scan --bulk --enrich        # Add market_cap/P-E via pse_edge
+phse scan --bulk --symbols GCASH,FGEN,DMC  # Fast per-symbol lookup
+```
 
 ## Technical Analysis
 
@@ -202,34 +210,41 @@ phse-cli/
 ├── phse/
 │   ├── cli.py              # Typer CLI with all commands
 │   ├── config.py           # Settings (cache dir, throttle, etc.)
-│   ├── models.py           # Shared data models
-│   ├── data/
-│   │   ├── pse_edge.py     # PSE Edge scraper (HTML/AJAX)
-│   │   ├── frames_pse.py   # frames.pse.com.ph JSON parser (backup source)
-│   │   ├── unified.py      # Auto-merges frames_pse + pse_edge
-│   │   ├── cache.py        # SQLite caching layer
-│   │   ├── exceptions.py   # Custom exceptions
-│   │   └── models.py       # Company, Quote, OHLCV models
-│   ├── scan/
-│   │   └── screener.py     # Stock screener with filters
 │   ├── analysis/
+│   │   ├── __init__.py     # Package exports
 │   │   ├── models.py       # IndicatorResult, Signal, AnalysisResult
 │   │   ├── indicators.py   # SMA, EMA, RSI, MACD, BB, ATR, VWAP
 │   │   ├── signals.py      # Signal engine + composite scoring
 │   │   └── backtest.py     # SMA crossover backtest engine
 │   ├── chart/
+│   │   ├── __init__.py     # Package exports
 │   │   └── renderer.py     # lightweight-charts-python renderer
+│   ├── data/
+│   │   ├── __init__.py     # Package exports
+│   │   ├── pse_edge.py     # PSE Edge scraper (HTML/AJAX)
+│   │   ├── frames_pse.py   # frames.pse.com.ph JSON parser
+│   │   ├── unified.py      # Auto-merges frames_pse + pse_edge
+│   │   ├── cache.py        # SQLite caching layer
+│   │   ├── exceptions.py   # Custom exceptions
+│   │   └── models.py       # Company, Quote, OHLCV models
+│   ├── scan/
+│   │   ├── __init__.py     # Package exports
+│   │   └── screener.py     # Stock screener with filters
 │   ├── watchlist/
-│   │   ├── __init__.py       # Watchlist package (exports)
+│   │   ├── __init__.py     # Package exports
 │   │   ├── watchlist.py    # Watchlist CRUD
 │   │   └── alerts.py       # Price alert management
 │   ├── recap/
+│   │   ├── __init__.py     # Package exports
 │   │   └── recap.py        # Market recap (top gainers/losers)
 │   ├── fundamentals/
+│   │   ├── __init__.py     # Package exports
 │   │   └── fundamentals.py # Company financial metrics
 │   ├── dividends/
+│   │   ├── __init__.py     # Package exports
 │   │   └── dividends.py    # Dividend tracking
 │   └── why/
+│       ├── __init__.py     # Package exports
 │       └── why.py          # Signal explanation
 ├── tests/
 │   ├── test_phse_cli.py   # Core scraper & model tests
