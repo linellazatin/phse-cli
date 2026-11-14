@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.2.0] - 2026-01-15
+
+### Added
+
+- **`phse scan --bulk` / `-b`**: Fast full-market scan using frames.pse.com.ph single JSON response. Reduces 368 HTTP calls to 1. Runs in ~1-2s vs 120s+ for traditional mode.
+- **`phse scan --enrich`**: Optional pse_edge enrichment for bulk scan — adds market_cap and P/E data to results. Only fetches quotes for requested symbols (not all 367).
+- **`StockScreener.bulk_scan()`**: New method that fetches all stocks in one HTTP call, processes in-memory. Supports sorting by gainers/losers/most-active.
+- **`StockScreener.scan_symbols()`**: Quick per-symbol lookup for specific symbols — bypasses bulk sort entirely.
+- **`PseEdgeClient.get_price_history()`**: New `force` parameter to bypass cache on demand.
+
+### Fixed
+
+- **`phse backtest`**: Fixed fundamentally broken return calculation. Returns are now compounded (geometric mean) instead of arithmetic-summed. Entry/exit prices use actual trade points instead of evenly-spaced approximations. Sharpe ratio uses proper standard deviation of returns instead of max drawdown / 20. Handles initial golden cross when short SMA is already above long SMA at the first valid point.
+- **`phse scan` / `StockScreener`**: Fixed `scan/screener.py` returning 0 results with unified client. `get_quote()` now calls the correct signature per client type (1 arg for unified, 2 args for pse_edge).
+- **`phse analyze` / `_rsi_signal()`**: Fixed RSI "STRONG" label showing red (bearish color) for bullish range 55-70. Changed to green "APPROACHING OB". Renamed 30-45 range from "WEAK" to "APPROACHING OS" for semantic accuracy.
+- **`phse history`**: `--latest` / `-l` flag now actually forces a fresh fetch by passing `force=True` to skip cache.
+- **`phse analyze` output**: Fixed unused `arrow` variable in `_print_analysis()` — now properly assigned.
+
+### Changed
+
+- **`UnifiedPseClient.get_companies()`**: Improved fallback chain — triple fallback (frames+edge → edge → frames) instead of single fallback, preventing silent data loss during merge.
+- **`phse/data/models.py`**: Removed dead `AnalysisResult` and `TechnicalSignal` Pydantic models (never imported outside this module). Use `phse.analysis.models.AnalysisResult` and `phse.analysis.models.Signal` instead.
+- **`phse scan`**: When `--symbols` is used with `--bulk`, switches to fast per-symbol lookup instead of bulk sort.
+
 ## [0.1.1] - 2026-01-15
 
 ### Fixed
@@ -45,7 +69,7 @@
 - **frames.pse.com.ph**: Embedded JSON parser from hidden `<input id="JsonId">` field, 367 stocks filtered from 388 entries
 - **Unified client**: frames price + pse_edge OHLC/market cap/P/E merging
 - **Test symbols**: GCASH (709, limited history), DMC (188, long history), FGEN (600, long history)
-- **44 tests** passing (models, scraper, indicators, signals, backtest, chart)
+- **46 tests** passing (models, scraper, indicators, signals, backtest, chart)
 - **Pydantic models**: Company, Quote, OHLCV, TechnicalSignal, AnalysisResult, ScanResult, WatchlistEntry, Alert, MarketSummary
 - **Tech stack**: Typer, httpx, lxml, Pydantic, pandas, ta, lightweight-charts-python, rich, aiosqlite
 - **Recap performance**: `phse recap` now runs in ~1.3s using a single frames.pse.com.ph API call (previously ~24s with per-stock fetching). All 367 companies are analyzed for gainers/losers/volume.

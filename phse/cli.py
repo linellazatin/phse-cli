@@ -74,6 +74,8 @@ def quote(symbol: str, latest: bool = typer.Option(False, "--latest", "-l",
 @app.command()
 def history(symbol: str, period: str = typer.Option("1m", "--period", "-p",
             help="Time period: 1m, 3m, 6m, 1y"),
+            latest: bool = typer.Option(False, "--latest", "-l",
+            help="Force fetch latest data (skip cache)"),
 ):
     """Show historical price data for a PSE stock."""
     client = PseEdgeClient(settings)
@@ -86,7 +88,7 @@ def history(symbol: str, period: str = typer.Option("1m", "--period", "-p",
 
     # Fetch history
     try:
-        ohlcv = client.get_price_history(company.cmpy_id, symbol, period)
+        ohlcv = client.get_price_history(company.cmpy_id, symbol, period, force=latest)
     except Exception as e:
         console.print(f"[bold red]Error fetching history:[/bold red] {e}")
         raise typer.Exit(code=1)
@@ -156,8 +158,18 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
                                     help="Maximum number of results"),
          sort_by: str = typer.Option("symbol", "--sort",
                                       help="Sort by: symbol, change, volume, price"),
+         bulk: bool = typer.Option(False, "--bulk", "-b",
+                                    help="Fast scan using frames.pse.com.ph (single HTTP call)"),
+         enrich: bool = typer.Option(False, "--enrich",
+                                      help="Enrich bulk scan with pse_edge market_cap/P-E"),
 ):
     """Scan PSE stocks with filters and sorting."""
+    if bulk:
+        return _scan_bulk(top_gainers=top_gainers, top_losers=top_losers,
+                          most_active=most_active, symbols=symbols, sector=sector,
+                          min_volume=min_volume, price_min=price_min, price_max=price_max,
+                          limit=limit, sort_by=sort_by, enrich=enrich)
+
     from .data.unified import UnifiedPseClient
     client = UnifiedPseClient(settings)
 
@@ -249,6 +261,69 @@ def scan(top_gainers: bool = typer.Option(False, "--top-gainers", "-g"),
         results = results[:limit]
         title = f"Stock Scan ({len(results)} results)"
 
+    _print_scan_results(results, title)
+
+
+def _scan_bulk(top_gainers: bool, top_losers: bool, most_active: bool,
+               symbols: str | None, sector: str | None,
+               min_volume: int | None, price_min: float | None,
+               price_max: float | None, limit: int, sort_by: str,
+               enrich: bool) -> None:
+    """Fast bulk scan via frames.pse.com.ph."""
+    from .scan.screener import StockScreener
+
+    # Build symbol set
+    sym_set: set[str] | None = None
+    if symbols:
+        sym_set = {s.strip().upper() for s in symbols.split(",")}
+
+    screener = StockScreener(settings, use_unified=True)
+
+    # When specific symbols requested, use fast per-symbol lookup
+    if sym_set and not any([top_gainers, top_losers, most_active]):
+        results = screener.scan_symbols(sym_set, enrich=enrich)
+        if not results:
+            console.print("[yellow]No stocks found for the given symbols.[/yellow]")
+            return
+        results.sort(key=lambda r: r.symbol)
+        results = results[:limit]
+        title = f"Stock Scan ({len(results)} results)"
+        _print_scan_results(results, title)
+        return
+
+    results, source = screener.bulk_scan(
+        sector=sector,
+        min_price=price_min,
+        max_price=price_max,
+        min_volume=min_volume,
+        top_gainers=top_gainers,
+        top_losers=top_losers,
+        most_active=most_active,
+        limit=limit,
+        enrich=enrich,
+        symbols=sym_set,
+    )
+
+    if not results:
+        console.print("[yellow]No stocks match the given criteria.[/yellow]")
+        return
+
+    # Apply symbol filter (frames data is already filtered)
+    if sym_set:
+        results = [r for r in results if r.symbol.upper() in sym_set]
+
+    # Sort if not already sorted by scan criteria
+    if not any([top_gainers, top_losers, most_active]):
+        sort_key = {
+            "symbol": lambda r: r.symbol,
+            "change": lambda r: r.percent_change or 0,
+            "volume": lambda r: r.volume or 0,
+            "price": lambda r: r.last_price or 0,
+        }.get(sort_by, lambda r: r.symbol)
+        results.sort(key=sort_key)
+
+    source_note = f" [{source}]" if source != "frames" else ""
+    title = f"Stock Scan ({len(results)} results){source_note}"
     _print_scan_results(results, title)
 
 
@@ -642,7 +717,7 @@ def about():
         Text("Philippine Securities Engine (phse) CLI\n"
              "A modular tool for scanning, analyzing, and charting PSE stocks.\n\n"
              "Data source: PSE Edge (edge.pse.com.ph)\n"
-             "Version: 0.1.1",
+             "Version: 0.2.0",
              style="cyan"),
         title="[bold]phse cli[/bold]",
         border_style="blue",
@@ -748,7 +823,6 @@ def _print_analysis(analysis: AnalysisResult, current_price: float, symbol: str)
 
     # Header
     color = {"BUY": "green", "SELL": "red", "HOLD": "yellow"}.get(analysis.composite_signal, "white")
-    {"BUY": "▲", "SELL": "▼", "HOLD": "—"}.get(analysis.composite_signal, "—")
 
     console.print()
     console.print(Panel(
@@ -835,11 +909,11 @@ def _rsi_signal(rsi: float) -> str:
     if rsi < 30:
         return "[green]OVERSOLD[/green]"
     elif rsi < 45:
-        return "[green]WEAK[/green]"
+        return "[green]APPROACHING OS[/green]"
     elif rsi > 70:
         return "[red]OVERBOUGHT[/red]"
     elif rsi > 55:
-        return "[red]STRONG[/red]"
+        return "[green]APPROACHING OB[/green]"
     return "[yellow]NEUTRAL[/yellow]"
 
 

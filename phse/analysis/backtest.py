@@ -61,52 +61,56 @@ def backtest_sma_crossover(
 
     # Simulate trades
     position = False  # False = cash, True = stock
-    entries = []
+    entry_prices = []  # track actual entry prices
+    exit_prices = []  # track actual exit prices
     buys = 0
     sells = 0
 
     for i in range(long_period, n):
         if short_sma[i] is None or long_sma[i] is None:
             continue
-        if short_sma[i - 1] is None or long_sma[i - 1] is None:
-            continue
 
-        # Golden cross: short crosses above long
-        if not position and short_sma[i] > long_sma[i] and short_sma[i - 1] <= long_sma[i - 1]:
+        # Handle first valid point: if short > long and no position, enter (initial golden cross)
+        if i == long_period and not position and short_sma[i] > long_sma[i]:
             position = True
-            entries.append(closes[i])
+            entry_prices.append(closes[i])
             buys += 1
-        # Death cross: short crosses below long
-        elif position and short_sma[i] < long_sma[i] and short_sma[i - 1] >= long_sma[i - 1]:
-            position = False
-            sells += 1
+        elif short_sma[i - 1] is not None and long_sma[i - 1] is not None:
+            # Golden cross: short crosses above long
+            if not position and short_sma[i] > long_sma[i] and short_sma[i - 1] <= long_sma[i - 1]:
+                position = True
+                entry_prices.append(closes[i])
+                buys += 1
+            # Death cross: short crosses below long
+            elif position and short_sma[i] < long_sma[i] and short_sma[i - 1] >= long_sma[i - 1]:
+                position = False
+                exit_prices.append(closes[i])
+                sells += 1
 
     # Close any open position at the end
     if position:
+        exit_prices.append(closes[n - 1])
         sells += 1
 
-    # Calculate returns
-    for entry_price in entries:
-        # Find the next sell price (simplified: use sequential data)
-        pass
-
-    # Simplified: just compute total return from all completed trades
-    # Since we don't track exact sell prices, use a simpler metric
-    trade_count = min(buys, sells)
+    # Calculate returns from actual entry/exit pairs
+    trade_count = min(len(entry_prices), len(exit_prices))
     if trade_count == 0:
         total_return = 0.0
         win_rate = 0.0
+        trade_returns = []
     else:
-        # Estimate: compare entry prices to subsequent prices (simplified)
-        total_return = 0.0
+        trade_returns = []
         wins = 0
         for i in range(trade_count):
-            entry_idx = long_period + i * (n // max(trade_count, 1))
-            exit_idx = min(entry_idx + long_period, n - 1)
-            trade_return = (closes[exit_idx] - entries[i]) / entries[i] * 100
-            total_return += trade_return
+            trade_return = (exit_prices[i] - entry_prices[i]) / entry_prices[i] * 100
+            trade_returns.append(trade_return)
             if trade_return > 0:
                 wins += 1
+        # Compound returns: (1 + r1)(1 + r2)... - 1
+        compound_factor = 1.0
+        for r in trade_returns:
+            compound_factor *= (1 + r / 100)
+        total_return = (compound_factor - 1) * 100
         win_rate = wins / trade_count * 100 if trade_count > 0 else 0
 
     # Max drawdown
@@ -118,9 +122,11 @@ def backtest_sma_crossover(
         max_dd = max(max_dd, dd)
 
     # Sharpe ratio (simplified annualized)
-    if trade_count > 1:
-        avg_return = total_return / trade_count
-        sharpe = avg_return / (max_dd / 20) if max_dd > 0 else 0.0
+    if trade_count > 1 and trade_returns:
+        avg_return = sum(trade_returns) / len(trade_returns)
+        variance = sum((r - avg_return) ** 2 for r in trade_returns) / (len(trade_returns) - 1)
+        std_dev = variance ** 0.5
+        sharpe = (avg_return / std_dev) * (252 ** 0.5) if std_dev > 0 else 0.0
     else:
         sharpe = 0.0
 
